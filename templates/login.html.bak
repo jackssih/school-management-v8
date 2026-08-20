@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ school_name }} — Sign in</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="auth-page">
+    <div class="auth-card">
+        <div class="logo-badge auth-logo">S</div>
+        <p class="auth-title">{{ school_name }}</p>
+        <p class="auth-subtitle">Sign in to your account</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-stack">
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% if errors.form %}
+            <p class="form-error auth-form-error">{{ errors.form }}</p>
+        {% endif %}
+
+        <form method="post">
+            <input type="hidden" name="next" value="{{ next_url }}">
+
+            <div class="form-group">
+                <label class="form-label" for="email">Email</label>
+                <input class="form-input" type="email" id="email" name="email" value="{{ email }}" placeholder="name@school.org" autofocus>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input class="form-input" type="password" id="password" name="password" placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="primary-btn auth-submit"><i class="ti ti-login"></i> Sign in</button>
+        </form>
+
+        <p class="auth-hint">Don't have credentials? Ask your school admin to create an account for you under Settings &rarr; Users.</p>
+    </div>
+</div>
+
+</body>
+</html>

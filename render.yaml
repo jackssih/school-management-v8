@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: school-management-v8
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && flask --app app db upgrade
+    startCommand: gunicorn --workers 2 --timeout 120 app:app
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: school-management-v8-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+
+databases:
+  - name: school-management-v8-db
+    plan: free
