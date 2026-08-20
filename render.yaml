@@ -3,7 +3,7 @@ services:
     name: school-management-v8
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python -c "from app import app, db; app.app_context().push(); db.create_all()"
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --workers 2 --timeout 120 app:app
     healthCheckPath: /health
     envVars:

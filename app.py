@@ -5031,7 +5031,32 @@ def print_timetable_board(board_id):
         }
     )
     return render_template("timetable_print.html", **context)
+# ===== AUTO-INITIALIZE DATABASE ON STARTUP =====
+def _init_db_on_startup():
+    """
+    Automatically creates database tables if they don't exist.
+    This ensures the database is always initialized, even if buildCommand fails.
+    Safe to call multiple times - only creates what doesn't exist.
+    """
+    with app.app_context():
+        try:
+            # Test if schools table exists by querying it
+            db.session.execute(db.text("SELECT 1 FROM schools LIMIT 1"))
+            # If we get here, DB is already initialized
+            return
+        except Exception as e:
+            # Tables don't exist, create them
+            print(f"[STARTUP] Initializing database...")
+            try:
+                db.create_all()
+                print("[STARTUP] ✓ Database tables created successfully")
+            except Exception as create_error:
+                print(f"[STARTUP] ⚠ Warning: Could not create tables: {create_error}")
+                # Continue anyway
+                pass
 
+# Initialize database when the app starts
+_init_db_on_startup()
 
 if __name__ == "__main__":
     app.run(debug=True)
