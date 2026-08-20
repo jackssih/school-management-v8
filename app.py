@@ -5057,6 +5057,61 @@ def _init_db_on_startup():
 
 # Initialize database when the app starts
 _init_db_on_startup()
+# ===== AUTO-CREATE ADMIN ACCOUNT ON FIRST STARTUP =====
+def _auto_create_admin():
+    """
+    Automatically creates admin account on first startup.
+    Only runs if admin doesn't already exist.
+    Safe to leave in permanently.
+    """
+    with app.app_context():
+        from datetime import date
+        from werkzeug.security import generate_password_hash
+        
+        # Check if admin already exists
+        existing_admin = Staff.query.filter_by(email="admin@school.com").first()
+        if existing_admin:
+            return  # Already set up, do nothing
+        
+        try:
+            # Create minimal school record
+            school = School(
+                name="School",
+                type="Primary School",
+                address="",
+                phone="",
+                email="",
+                website="",
+                reg_no="",
+                logo_path=""
+            )
+            db.session.add(school)
+            
+            # Create admin account with password: support
+            admin = Staff(
+                name="Admin",
+                email="admin@school.com",
+                phone="",
+                role="admin",
+                account_created=True,
+                has_logged_in=False,
+                created_on=date.today(),
+                password_hash=generate_password_hash("support"),
+                must_change_password=False,
+                is_active=True,
+                theme="light"
+            )
+            db.session.add(admin)
+            db.session.commit()
+            
+            print("[STARTUP] ✓ Admin account created")
+            print("[STARTUP]   Email: admin@school.com")
+            print("[STARTUP]   Password: support")
+            
+        except Exception as e:
+            print(f"[STARTUP] Admin creation failed: {e}")
 
+# Auto-create admin on startup
+_auto_create_admin()
 if __name__ == "__main__":
     app.run(debug=True)
