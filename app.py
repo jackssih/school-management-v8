@@ -5140,5 +5140,70 @@ def _auto_create_admin():
 
 # Auto-create admin on startup
 _auto_create_admin()
+# ===== INITIALIZE ALL DATABASE TABLES ON STARTUP =====
+def _init_all_db_tables():
+    """
+    Ensure ALL database tables are created on startup.
+    This runs once - if tables exist, it does nothing.
+    Safe to call multiple times.
+    """
+    with app.app_context():
+        try:
+            from datetime import date
+            from werkzeug.security import generate_password_hash
+            
+            # Create all tables defined in models.py
+            db.create_all()
+            print("[STARTUP] ✓ Database tables created/verified")
+            
+            # Check if admin exists
+            existing_admin = Staff.query.filter_by(email="admin@school.com").first()
+            if existing_admin:
+                print("[STARTUP] ✓ Admin account already exists")
+                return
+            
+            # Create minimal school (only if no schools exist)
+            if not School.query.first():
+                school = School(
+                    name="School",
+                    type="Primary School",
+                    address="",
+                    phone="",
+                    email="",
+                    website="",
+                    reg_no="",
+                    logo_path=""
+                )
+                db.session.add(school)
+                db.session.commit()
+                print("[STARTUP] ✓ School record created")
+            
+            # Create admin account
+            admin = Staff(
+                name="Admin",
+                email="admin@school.com",
+                phone="",
+                role="admin",
+                account_created=True,
+                has_logged_in=False,
+                created_on=date.today(),
+                password_hash=generate_password_hash("support"),
+                must_change_password=False,
+                is_active=True,
+                theme="light"
+            )
+            db.session.add(admin)
+            db.session.commit()
+            
+            print("[STARTUP] ✓ Admin account created")
+            print("[STARTUP]   Email: admin@school.com")
+            print("[STARTUP]   Password: support")
+            
+        except Exception as e:
+            print(f"[STARTUP ERROR] Database initialization failed: {e}")
+            db.session.rollback()
+
+# Initialize database tables on startup
+_init_all_db_tables()
 if __name__ == "__main__":
     app.run(debug=True)
