@@ -3793,33 +3793,60 @@ def remove_student_from_enrollment(student_id):
 
 @app.route("/academics/enrollment/new", methods=["POST"])
 def new_enrollment():
-    class_name = request.form.get("class_name", "").strip()
-    student_ids = [int(v) for v in request.form.getlist("student_ids") if v.isdigit()]
-    academic_class = AcademicClass.query.filter_by(name=class_name).first() if class_name else None
-    if not class_name or academic_class is None:
-        return jsonify({"success": False, "errors": {"class_name": "Class is required."}}), 400
-    if not student_ids:
-        return jsonify({"success": False, "errors": {"student_ids": "Choose at least one student."}}), 400
+    try:
+        class_name = request.form.get("class_name", "").strip()
+        student_ids = [int(v) for v in request.form.getlist("student_ids") if v.isdigit()]
+        
+        # Validate inputs
+        academic_class = AcademicClass.query.filter_by(name=class_name).first() if class_name else None
+        if not class_name or academic_class is None:
+            return jsonify({"success": False, "errors": {"class_name": "Class is required."}}), 400
+        if not student_ids:
+            return jsonify({"success": False, "errors": {"student_ids": "Choose at least one student."}}), 400
 
-    students = Student.query.filter(Student.id.in_(student_ids)).all()
-    already_enrolled = [student.name for student in students if student.current_class_name]
-    if already_enrolled:
-        message = "These students are already enrolled and cannot be enrolled again: " + ", ".join(already_enrolled)
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        # Get students and check if already enrolled
+        students = Student.query.filter(Student.id.in_(student_ids)).all()
+        if not students:
+            return jsonify({"success": False, "errors": {"student_ids": "No valid students selected."}}), 400
+            
+        already_enrolled = [student.name for student in students if student.current_class_name]
+        if already_enrolled:
+            message = "Already enrolled: " + ", ".join(already_enrolled)
             return jsonify({"success": False, "errors": {"student_ids": message}}), 400
-        flash(message, "error")
-        return redirect(url_for("academic_enrollment_class", class_id=academic_class.id))
-    for student in students:
-        student.current_class_name = class_name
-    db.session.add(
-        Enrollment(date=date.today(), academic_class=academic_class, status="Enrolled", students=students)
-    )
-    db.session.commit()
-    flash(f"{len(student_ids)} student(s) enrolled in {class_name}.", "success")
-    redirect_url = url_for("academic_enrollment_class", class_id=academic_class.id)
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return jsonify({"success": True, "redirect": redirect_url})
-    return redirect(redirect_url)
+
+        # Update students and create enrollment
+        for student in students:
+            student.current_class_name = class_name
+            db.session.add(student)
+        
+        # Create enrollment record
+        enrollment = Enrollment(
+            date=date.today(), 
+            academic_class=academic_class, 
+            status="Enrolled"
+        )
+        # Add students to enrollment via the relationship
+        enrollment.students.extend(students)
+        db.session.add(enrollment)
+        db.session.commit()
+
+        message = f"{len(student_ids)} student(s) enrolled in {class_name}."
+        redirect_url = url_for("academic_enrollment_class", class_id=academic_class.id)
+        
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"success": True, "redirect": redirect_url, "message": message})
+        
+        flash(message, "success")
+        return redirect(redirect_url)
+        
+    except Exception as e:
+        print(f"Enrollment error: {e}")
+        db.session.rollback()
+        error_msg = f"Enrollment failed: {str(e)}"
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"success": False, "errors": {"general": error_msg}}), 500
+        flash(error_msg, "error")
+        return redirect(url_for("academics"))
 
 
 @app.route("/academics/enrollment/<int:enrollment_id>/edit", methods=["POST"])
