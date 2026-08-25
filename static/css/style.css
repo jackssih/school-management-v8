@@ -1806,7 +1806,7 @@ body {
 }
 
 
-/* Pupil meta table ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â peach label column like the sample */
+/* Pupil meta table ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â peach label column like the sample */
 
 .report-meta-wrap {
     position: relative;
@@ -1867,7 +1867,7 @@ body {
 }
 
 
-/* Attendance report ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â simple summary table + per-class absentee list,
+/* Attendance report ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â simple summary table + per-class absentee list,
    deliberately lighter than the academic mark-sheet styling above. */
 
 .attendance-summary-table {
@@ -1958,10 +1958,10 @@ body {
 }
 
 
-/* End-of-term report — page 1 (identity + grading scale) is naturally shorter
+/* End-of-term report â€” page 1 (identity + grading scale) is naturally shorter
    than page 2 (mark tables + comments) since it has less content. Scaling up
-   the logo, headings, and spacing here — and stretching the grading scale to
-   the bottom of the frame — brings its printed height in line with page 2's. */
+   the logo, headings, and spacing here â€” and stretching the grading scale to
+   the bottom of the frame â€” brings its printed height in line with page 2's. */
 
 .report-eot-page-one .report-card-frame {
     display: flex;
@@ -2032,7 +2032,7 @@ body {
 }
 
 
-/* Period tables (B.O.T. / Mid / E.O.T.) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â blue header, yellow marks, cyan aggregates */
+/* Period tables (B.O.T. / Mid / E.O.T.) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â blue header, yellow marks, cyan aggregates */
 
 .report-period-tables {
     display: flex;
@@ -2312,7 +2312,7 @@ body {
 }
 
 
-/* Comments ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â label in the school's red house colour, plus a signature
+/* Comments ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â label in the school's red house colour, plus a signature
    line so the printed copy can be hand-signed like the paper template. */
 
 .report-comments {
@@ -2440,7 +2440,7 @@ body {
    z-index must be ABOVE .report-preview-overlay's z-index (200). html2pdf.js
    clones the whole document into a hidden iframe and renders it respecting
    real paint/stacking order, then crops the output to this element's
-   bounding box ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â it does not render this element in isolation. The preview
+   bounding box ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â it does not render this element in isolation. The preview
    modal is still open (position: fixed, inset: 0, opaque background) while
    the download runs, so if this clone sits below the modal in stacking
    order, the modal paints over it and the crop captures blank/empty pages.
@@ -2449,11 +2449,11 @@ body {
    brief moment it takes html2canvas to capture it.
 
    Positioned at real on-screen coordinates (0,0) rather than pushed
-   off-screen with a large negative offset ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â html2canvas can fail to render
+   off-screen with a large negative offset ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â html2canvas can fail to render
    elements positioned far outside the viewport and silently produce a
    blank canvas. It deliberately lives outside .report-preview-overlay and
    .report-document-area (overflow-y: auto) so nothing clips or repositions
-   the content being captured. Must be `position: absolute`, not `fixed` ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â
+   the content being captured. Must be `position: absolute`, not `fixed` ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
    html2canvas's cloned-iframe rendering doesn't reliably capture
    viewport-fixed elements. */
 #reportPrintContainer {
@@ -3143,7 +3143,7 @@ table.timetable-grid th:hover .timetable-period-tools {
     }
 }
 /* =====================================================================
-   Modern dashboard refresh Ã¢â‚¬â€ soft editorial / pastel school aesthetic
+   Modern dashboard refresh ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â soft editorial / pastel school aesthetic
    ===================================================================== */
 :root {
     --modern-green: #29996f;
@@ -3245,6 +3245,29 @@ body { background: var(--modern-bg); color: var(--modern-ink); }
 @media (max-width: 560px) { .dashboard-kpis{grid-template-columns:1fr}.hero-banner{min-height:160px;padding:20px}.hero-copy h2{font-size:21px}.dashboard-card{padding:15px}.distribution-content{flex-direction:column}.topbar-title span{display:none}.topbar-actions{margin-left:auto}.content{padding-left:12px;padding-right:12px}.kpi-card{padding:14px}.circle-btn{width:38px;height:38px} }
 
 /* --- Modern dashboard fixes / interactions --- */
+.mobile-sidebar-toggle {
+    display:none;
+    width:40px;
+    height:40px;
+    flex:none;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--modern-line);
+    border-radius:11px;
+    background:#fff;
+    color:var(--modern-ink);
+    cursor:pointer;
+    box-shadow:0 4px 15px rgba(40,50,45,.04);
+}
+.mobile-sidebar-toggle i { font-size:20px; }
+.sidebar-overlay {
+    display:none;
+}
+[data-theme="dark"] .mobile-sidebar-toggle {
+    background:#202724;
+    border-color:#303a35;
+    color:#ecefea;
+}
 .topbar-title-row { display:flex; align-items:center; gap:10px; min-width:0; }
 .topbar-title-row h1 { white-space:nowrap; }
 .topbar-title-row .term-switcher { flex:none; }
@@ -3315,6 +3338,19 @@ body { background: var(--modern-bg); color: var(--modern-ink); }
     .sidebar-collapsed .sidebar { padding-left:18px; padding-right:18px; }
     .sidebar-collapsed .brand-copy, .sidebar-collapsed .side-nav-link span, .sidebar-collapsed .sidebar-promo { display:flex; }
     .sidebar-collapsed .side-nav-link { justify-content:flex-start; }
+    .mobile-sidebar-toggle { display:flex; }
+    .sidebar-overlay {
+        position:fixed;
+        inset:0;
+        z-index:90;
+        display:block;
+        background:rgba(20,25,23,.42);
+        opacity:0;
+        pointer-events:none;
+        transition:opacity .2s ease;
+        backdrop-filter:blur(1px);
+    }
+    .sidebar-overlay.open { opacity:1; pointer-events:auto; }
     .topbar-title-row .term-switcher { display:none; }
     .topbar { flex-wrap:wrap; }
     .topbar-search { display:flex; order:3; width:100%; max-width:none; margin:0; }
@@ -3719,7 +3755,7 @@ table tbody tr:hover td {
 }
 
 /* -------------------------------------------------------------------------
-   Final table-heading polish Ã¢â‚¬â€ keep existing search areas unchanged
+   Final table-heading polish ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â keep existing search areas unchanged
    ------------------------------------------------------------------------- */
 /* Restore the established search-box treatment. Do not restyle search fields
    as generic rounded form controls. */

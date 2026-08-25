@@ -10,7 +10,7 @@
 <body>
 <div class="app-shell">
     <div class="app-frame">
-        <aside class="sidebar">
+        <aside class="sidebar" id="appSidebar">
             <div class="sidebar-brand">
                 <div class="brand-mark">
                     {% if school_logo_url %}<img src="{{ school_logo_url }}" alt="{{ school_name }} logo">{% else %}<span>S</span>{% endif %}
@@ -55,6 +55,9 @@
             <header class="topbar">
                 <div class="topbar-title">
                     <div class="topbar-title-row">
+                        <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="appSidebar">
+                            <i class="ti ti-menu-2"></i>
+                        </button>
                         <h1>{{ page_title or 'Dashboard' }}</h1>
                         <div class="term-switcher" id="termSwitcher">
                             <button type="button" class="term-pill" id="termButton">
@@ -105,6 +108,7 @@
         </div>
     </div>
 </div>
+<div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
 <div class="modal-overlay" id="termDatesModal"><div class="modal-dialog"><div class="modal-header"><p class="form-heading" id="termDatesTitle">Term dates</p><i class="ti ti-x modal-close" onclick="closeModal('termDatesModal')"></i></div><p class="form-subheading">Used to work out the active term automatically, and to label reports and timetables.</p><form class="term-dates-form" action="{{ url_for('save_term_dates') }}" method="post"><input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}"><input type="hidden" id="termDatesYear" name="year"><input type="hidden" id="termDatesNumber" name="term_number"><div class="form-group"><label class="form-label" for="termDatesStart">Start date</label><input class="form-input" type="date" id="termDatesStart" name="start_date"></div><div class="form-group"><label class="form-label" for="termDatesEnd">End date</label><input class="form-input" type="date" id="termDatesEnd" name="end_date"></div><div class="form-actions"><button type="button" class="secondary-btn" onclick="closeModal('termDatesModal')">Cancel</button><button type="submit" class="primary-btn"><i class="ti ti-check"></i> Save dates</button></div></form></div></div>
 <script>window.SCHOOL_EVENTS={{ calendar_events|tojson }};window.ALL_TERMS={{ all_terms_json|tojson }};window.CURRENT_TERM_ID={{ current_term.id if current_term else 'null' }};</script>
