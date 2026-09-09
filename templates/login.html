@@ -26,87 +26,109 @@
     <div class="login-shell">
 
         <div class="login-visual">
-            <div class="login-slide is-active" data-label="Campus network — online">
+            <div class="login-slide is-active" data-label="Reports &amp; analytics">
                 <svg viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
                     <defs>
-                        <linearGradient id="loginSkyA" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="var(--teal-tint)"/>
-                            <stop offset="100%" stop-color="var(--surface)"/>
-                        </linearGradient>
-                    </defs>
-                    <rect width="900" height="700" fill="url(#loginSkyA)"/>
-                    <circle cx="170" cy="150" r="58" fill="var(--amber)" opacity="0.9"/>
-                    <circle cx="170" cy="150" r="88" fill="var(--amber)" opacity="0.18"/>
-                    <circle cx="170" cy="150" r="118" fill="var(--amber)" opacity="0.10"/>
-                    <polygon points="0,520 220,300 340,430 520,240 680,420 780,340 900,480 900,700 0,700" fill="var(--teal)" opacity="0.85"/>
-                    <polygon points="0,560 260,400 420,500 600,360 780,500 900,440 900,700 0,700" fill="var(--teal-dark)"/>
-                    <g stroke="var(--teal-tint)" stroke-width="2" opacity="0.7">
-                        <line x1="120" y1="480" x2="120" y2="420"/><line x1="80" y1="450" x2="160" y2="450"/>
-                        <line x1="260" y1="430" x2="260" y2="370"/><line x1="220" y1="400" x2="300" y2="400"/>
-                        <line x1="400" y1="470" x2="400" y2="410"/><line x1="360" y1="440" x2="440" y2="440"/>
-                        <line x1="540" y1="400" x2="540" y2="340"/><line x1="500" y1="370" x2="580" y2="370"/>
-                        <line x1="660" y1="460" x2="660" y2="400"/><line x1="620" y1="430" x2="700" y2="430"/>
-                        <line x1="800" y1="420" x2="800" y2="360"/><line x1="760" y1="390" x2="840" y2="390"/>
-                    </g>
-                    <rect x="90" y="600" width="16" height="80" fill="var(--teal-dark)" opacity="0.8"/>
-                    <rect x="210" y="580" width="16" height="100" fill="var(--teal-dark)" opacity="0.8"/>
-                    <rect x="330" y="610" width="16" height="70" fill="var(--teal-dark)" opacity="0.8"/>
-                    <rect x="500" y="590" width="16" height="90" fill="var(--teal-dark)" opacity="0.8"/>
-                    <rect x="640" y="605" width="16" height="75" fill="var(--teal-dark)" opacity="0.8"/>
-                    <rect x="760" y="585" width="16" height="95" fill="var(--teal-dark)" opacity="0.8"/>
-                </svg>
-            </div>
-
-            <div class="login-slide" data-label="Staff sync — connected">
-                <svg viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
-                    <defs>
-                        <linearGradient id="loginSkyB" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id="loginSkyReports" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stop-color="var(--teal)"/>
                             <stop offset="100%" stop-color="var(--teal-dark)"/>
                         </linearGradient>
                     </defs>
-                    <rect width="900" height="700" fill="url(#loginSkyB)"/>
-                    <g stroke="var(--teal-tint)" stroke-opacity="0.5" stroke-width="1.5">
-                        <line x1="150" y1="180" x2="340" y2="120"/><line x1="340" y1="120" x2="520" y2="210"/>
-                        <line x1="520" y1="210" x2="700" y2="140"/><line x1="150" y1="180" x2="230" y2="340"/>
-                        <line x1="230" y1="340" x2="440" y2="380"/><line x1="440" y1="380" x2="640" y2="330"/>
-                        <line x1="640" y1="330" x2="780" y2="420"/><line x1="230" y1="340" x2="120" y2="480"/>
-                        <line x1="440" y1="380" x2="380" y2="540"/><line x1="640" y1="330" x2="600" y2="520"/>
-                        <line x1="340" y1="120" x2="700" y2="140"/>
+                    <rect width="900" height="700" fill="url(#loginSkyReports)"/>
+                    <circle cx="740" cy="130" r="60" fill="var(--amber)" opacity="0.85"/>
+                    <circle cx="740" cy="130" r="92" fill="var(--amber)" opacity="0.16"/>
+                    <circle cx="740" cy="130" r="124" fill="var(--amber)" opacity="0.09"/>
+
+                    <rect x="150" y="150" width="600" height="400" rx="18" fill="var(--surface)" opacity="0.97"/>
+                    <rect x="180" y="182" width="220" height="20" rx="5" fill="var(--teal-dark)" opacity="0.85"/>
+                    <rect x="180" y="212" width="140" height="10" rx="4" fill="var(--teal)" opacity="0.4"/>
+                    <rect x="580" y="178" width="140" height="30" rx="15" fill="var(--amber-tint)"/>
+                    <rect x="596" y="186" width="108" height="14" rx="4" fill="var(--amber)" opacity="0.9"/>
+
+                    <g>
+                        <line x1="200" y1="470" x2="700" y2="470" stroke="var(--teal-tint)" stroke-width="2"/>
+                        {% for bar in [(230,300,170,'var(--amber)'),(300,250,220,'var(--amber)'),(370,340,130,'var(--teal)'),(440,220,250,'var(--amber)'),(510,360,110,'var(--teal)'),(580,270,200,'var(--amber)'),(650,230,240,'var(--teal)')] %}
+                        <rect x="{{ bar[0] }}" y="{{ bar[1] }}" width="34" height="{{ bar[2] }}" rx="7" fill="{{ bar[3] }}" opacity="0.88"/>
+                        {% endfor %}
                     </g>
-                    {% for pt in [(150,180,1),(340,120,0),(520,210,0),(700,140,1),(230,340,0),(440,380,0),(640,330,1),(780,420,0),(120,480,0),(380,540,0),(600,520,0)] %}
-                    <circle cx="{{ pt[0] }}" cy="{{ pt[1] }}" r="15" fill="var(--teal-dark)" stroke="var(--teal-tint)" stroke-width="1.5" opacity="0.7"/>
-                    <circle cx="{{ pt[0] }}" cy="{{ pt[1] }}" r="5" fill="{{ 'var(--amber)' if pt[2] else 'var(--teal-tint)' }}"/>
-                    {% endfor %}
-                    <rect x="330" y="560" width="240" height="90" rx="10" fill="var(--surface)" opacity="0.96"/>
-                    <rect x="348" y="578" width="204" height="10" rx="3" fill="var(--teal-tint)"/>
-                    <rect x="348" y="596" width="150" height="8" rx="3" fill="var(--teal)" opacity="0.5"/>
-                    <rect x="348" y="612" width="180" height="8" rx="3" fill="var(--teal)" opacity="0.5"/>
-                    <rect x="348" y="628" width="120" height="8" rx="3" fill="var(--teal)" opacity="0.5"/>
+                    <path d="M230 360 L300 320 L370 400 L440 280 L510 380 L580 330 L650 300" fill="none" stroke="var(--amber)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
                 </svg>
             </div>
 
-            <div class="login-slide" data-label="Duty rota — live">
+            <div class="login-slide" data-label="Attendance — tracked daily">
                 <svg viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
                     <defs>
-                        <linearGradient id="loginSkyC" x1="0" y1="0" x2="1" y2="1">
+                        <linearGradient id="loginSkyAttendance" x1="0" y1="0" x2="1" y2="1">
                             <stop offset="0%" stop-color="var(--teal)"/>
                             <stop offset="100%" stop-color="var(--teal-dark)"/>
                         </linearGradient>
                     </defs>
-                    <rect width="900" height="700" fill="url(#loginSkyC)"/>
+                    <rect width="900" height="700" fill="url(#loginSkyAttendance)"/>
                     <rect x="180" y="120" width="540" height="360" rx="18" fill="var(--teal-dark)" opacity="0.7"/>
                     <rect x="205" y="150" width="490" height="300" rx="8" fill="var(--surface)"/>
                     <rect x="225" y="172" width="180" height="22" rx="4" fill="var(--teal)"/>
                     {% for row in [0,1,2] %}
                     <rect x="225" y="{{ 216 + row*68 }}" width="450" height="50" rx="8" fill="var(--surface)" stroke="var(--teal-tint)" stroke-width="1.5"/>
                     <circle cx="252" cy="{{ 241 + row*68 }}" r="11" fill="{{ 'var(--amber)' if row == 0 else 'var(--teal)' }}"/>
+                    <path d="M{{ 247 }} {{ 241 + row*68 }} l4 4 l7 -8" stroke="var(--surface)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
                     <rect x="278" y="{{ 233 + row*68 }}" width="150" height="9" rx="3" fill="var(--text-primary)" opacity="0.5"/>
                     <rect x="278" y="{{ 248 + row*68 }}" width="100" height="7" rx="3" fill="var(--text-secondary)" opacity="0.4"/>
                     <rect x="560" y="{{ 233 + row*68 }}" width="90" height="24" rx="12" fill="var(--teal-tint)"/>
                     {% endfor %}
                     <circle cx="700" cy="560" r="44" fill="var(--amber)" opacity="0.92"/>
                     <path d="M700 526 v14 M700 580 v14 M666 560 h14 M720 560 h14 M674 534 l10 10 M716 576 l10 10 M726 534 l-10 10 M684 576 l-10 10" stroke="var(--amber)" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+            </div>
+
+            <div class="login-slide" data-label="Student &amp; staff profiles">
+                <svg viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="loginSkyProfiles" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="var(--violet-dark)"/>
+                            <stop offset="100%" stop-color="var(--teal-dark)"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="900" height="700" fill="url(#loginSkyProfiles)"/>
+                    <circle cx="180" cy="140" r="56" fill="var(--violet)" opacity="0.85"/>
+                    <circle cx="180" cy="140" r="88" fill="var(--violet)" opacity="0.16"/>
+                    <circle cx="180" cy="140" r="118" fill="var(--violet)" opacity="0.09"/>
+
+                    {% for card in [(160,240),(430,200),(160,440),(430,440)] %}
+                    <rect x="{{ card[0] }}" y="{{ card[1] }}" width="230" height="150" rx="16" fill="var(--surface)" opacity="0.97"/>
+                    <circle cx="{{ card[0] + 46 }}" cy="{{ card[1] + 55 }}" r="26" fill="var(--violet-tint)"/>
+                    <circle cx="{{ card[0] + 46 }}" cy="{{ card[1] + 46 }}" r="11" fill="var(--violet)"/>
+                    <path d="M{{ card[0] + 26 }} {{ card[1] + 75 }} q20 -18 40 0" fill="var(--violet)" opacity="0.9"/>
+                    <rect x="{{ card[0] + 92 }}" y="{{ card[1] + 40 }}" width="110" height="11" rx="4" fill="var(--text-primary)" opacity="0.55"/>
+                    <rect x="{{ card[0] + 92 }}" y="{{ card[1] + 60 }}" width="80" height="8" rx="3" fill="var(--text-secondary)" opacity="0.4"/>
+                    <rect x="{{ card[0] + 92 }}" y="{{ card[1] + 96 }}" width="76" height="20" rx="10" fill="var(--violet-tint)"/>
+                    {% endfor %}
+                </svg>
+            </div>
+
+            <div class="login-slide" data-label="Enrollment made simple">
+                <svg viewBox="0 0 900 700" preserveAspectRatio="xMidYMid slice" role="img" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="loginSkyEnroll" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="var(--sky-dark)"/>
+                            <stop offset="100%" stop-color="var(--teal-dark)"/>
+                        </linearGradient>
+                    </defs>
+                    <rect width="900" height="700" fill="url(#loginSkyEnroll)"/>
+                    <rect x="230" y="130" width="330" height="420" rx="18" fill="var(--surface)" opacity="0.97"/>
+                    <rect x="262" y="164" width="180" height="18" rx="5" fill="var(--sky-dark)" opacity="0.85"/>
+                    <rect x="262" y="196" width="120" height="9" rx="4" fill="var(--text-secondary)" opacity="0.4"/>
+                    {% for field in [232,278,324,370] %}
+                    <rect x="262" y="{{ field }}" width="266" height="34" rx="8" fill="var(--sky-tint)"/>
+                    <rect x="278" y="{{ field + 12 }}" width="{{ 150 if field != 370 else 100 }}" height="10" rx="3" fill="var(--sky-dark)" opacity="0.55"/>
+                    {% endfor %}
+                    <rect x="262" y="454" width="266" height="40" rx="10" fill="var(--sky)"/>
+                    <rect x="330" y="468" width="130" height="12" rx="4" fill="var(--surface)" opacity="0.92"/>
+
+                    {% for step in [(630,230,1),(630,330,1),(630,430,0)] %}
+                    <line x1="630" y1="{{ step[1] + 26 }}" x2="630" y2="{{ step[1] + 74 }}" stroke="var(--sky-tint)" stroke-width="3" opacity="{{ '0' if step == (630,430,0) else '0.8' }}"/>
+                    <circle cx="630" cy="{{ step[1] }}" r="22" fill="{{ 'var(--sky)' if step[2] else 'var(--surface)' }}" stroke="var(--sky)" stroke-width="3"/>
+                    {% if step[2] %}<path d="M620 {{ step[1] }} l7 7 l14 -14" stroke="var(--surface)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>{% else %}<circle cx="630" cy="{{ step[1] }}" r="6" fill="var(--sky)"/>{% endif %}
+                    {% endfor %}
                 </svg>
             </div>
 
@@ -121,13 +143,14 @@
 
             <div class="login-status">
                 <i class="ti ti-wifi"></i>
-                <span id="loginSlideLabel">Campus network — online</span>
+                <span id="loginSlideLabel">Reports &amp; analytics</span>
             </div>
 
             <div class="login-dots" id="loginDots">
                 <button type="button" class="login-dot is-active" data-dot="0" aria-label="Show slide 1"></button>
                 <button type="button" class="login-dot" data-dot="1" aria-label="Show slide 2"></button>
                 <button type="button" class="login-dot" data-dot="2" aria-label="Show slide 3"></button>
+                <button type="button" class="login-dot" data-dot="3" aria-label="Show slide 4"></button>
             </div>
         </div>
 

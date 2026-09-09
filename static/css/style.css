@@ -26,6 +26,12 @@
     --promo-icon: #D77C3F;
     --promo-text: #252A26;
     --promo-text-soft: #4F514B;
+    --violet: #6C63C7;
+    --violet-dark: #453D8F;
+    --violet-tint: #EEEAF8;
+    --sky: #2E86AB;
+    --sky-dark: #1D5A75;
+    --sky-tint: #E6F2F7;
 }
 
 [data-theme="dark"] {
