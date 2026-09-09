@@ -286,8 +286,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Load jsPDF for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="{{ url_for('static', filename='js/reports-actions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/reports-actions.js') }}?v=8.2"></script>
     {% if active_tab == 'marksheets' and selected_class %}
-    <script src="{{ url_for('static', filename='js/marksheets-actions.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/marksheets-actions.js') }}?v=8.2"></script>
     {% endif %}
 {% endblock %}

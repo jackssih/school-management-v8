@@ -792,7 +792,14 @@
         const source = document.getElementById("reportDocument");
         const downloadBtn = document.getElementById("reportDownloadBtn");
 
+        // Mobile Safari can block the synthetic <a download> used by jsPDF.save()
+        // after an async canvas render. Open a tab immediately from the user's tap,
+        // then place the generated PDF URL into that tab once rendering finishes.
+        const isMobilePdfBrowser = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const mobilePdfWindow = isMobilePdfBrowser ? window.open("about:blank", "_blank") : null;
+
         if (!source || !activeReport || !source.innerHTML.trim()) {
+            if (mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
             alert("There is no report content to download.");
             return;
         }
@@ -1067,9 +1074,32 @@
                 );
             }
 
-            pdf.save(`${filenameBase || "report"}.pdf`);
+            const pdfFilename = `${filenameBase || "report"}.pdf`;
+
+            if (mobilePdfWindow && !mobilePdfWindow.closed) {
+                // Mobile Safari/Chrome can block a download attribute after an
+                // async html2canvas render. The tab was opened synchronously from
+                // the user's click, so load the generated PDF into that tab.
+                const pdfBlob = pdf.output("blob");
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                mobilePdfWindow.location.href = pdfUrl;
+                window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
+            } else if (isMobilePdfBrowser) {
+                // If the browser blocked the new tab, fall back to navigating the
+                // current tab to the PDF rather than silently doing nothing.
+                const pdfBlob = pdf.output("blob");
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                window.location.href = pdfUrl;
+                window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
+            } else {
+                // Keep the desktop path exactly on jsPDF's proven save() flow.
+                // This avoids browsers rejecting a synthetic download from a
+                // Blob URL after the asynchronous canvas rendering has finished.
+                pdf.save(pdfFilename);
+            }
         } catch (error) {
             console.error("Could not generate report PDF:", error);
+            if (mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
             alert("Something went wrong generating the PDF. Please try again.");
         } finally {
             downloadBtn.disabled = false;
