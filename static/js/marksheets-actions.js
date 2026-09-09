@@ -100,6 +100,11 @@
     }
 
     async function downloadMarkSheet(sheetType, button) {
+        // Ignore repeat clicks while a download is already being generated —
+        // without this guard a second tap while html2canvas is still working
+        // can leave the button permanently stuck on its spinner.
+        if (button.disabled) return;
+
         const data = MARKSHEET_DATA?.[sheetType];
         if (!data) {
             alert("No mark sheet data is available for this class.");
@@ -112,6 +117,16 @@
 
         const pages = renderMarksheets(data);
         if (!pages.length) return;
+
+        // Safari — on iPhone/iPad AND on the Mac desktop app — blocks the
+        // window jsPDF's own save() tries to open once it runs after the
+        // async canvas render, since by then the browser no longer treats it
+        // as a direct result of the click. Open a blank tab synchronously, in
+        // the same click, for every Safari build, then fill it in once ready.
+        const ua = navigator.userAgent;
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+        const isSafari = isIOS || (/Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|Edg|Android/i.test(ua));
+        const pdfWindow = isSafari ? window.open("about:blank", "_blank") : null;
 
         const original = button.innerHTML;
         button.disabled = true;
@@ -175,10 +190,30 @@
                 .toLowerCase()
                 .replace(/[^a-z0-9]+/g, "-")
                 .replace(/^-+|-+$/g, "");
+            const pdfFilename = `${filename || "class-marksheet"}.pdf`;
 
-            pdf.save(`${filename || "class-marksheet"}.pdf`);
+            const pdfBlob = pdf.output("blob");
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+
+            if (pdfWindow && !pdfWindow.closed) {
+                pdfWindow.location.href = pdfUrl;
+            } else if (isSafari) {
+                window.location.href = pdfUrl;
+            } else {
+                // Build the download link ourselves instead of calling jsPDF's
+                // own save(), since jsPDF's save() does its own Safari
+                // sniffing internally and that can misfire on desktop.
+                const link = document.createElement("a");
+                link.href = pdfUrl;
+                link.download = pdfFilename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+            window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
         } catch (error) {
             console.error("Could not generate mark sheet PDF:", error);
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("Something went wrong generating the mark sheet. Please try again.");
         } finally {
             button.disabled = false;

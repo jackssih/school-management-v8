@@ -792,23 +792,45 @@
         const source = document.getElementById("reportDocument");
         const downloadBtn = document.getElementById("reportDownloadBtn");
 
+        // Ignore repeat clicks while a download is already being generated —
+        // without this guard a second tap while html2canvas is still working
+        // can leave the button permanently stuck on its spinner icon.
+        if (downloadBtn.disabled) return;
+
+        // Safari — on iPhone/iPad AND on the Mac desktop app — blocks the
+        // window jsPDF's own save() tries to open once it runs after the
+        // async canvas render, because by then the browser no longer treats
+        // it as a direct result of the click. This is a WebKit/Safari
+        // restriction, not a phone-vs-laptop one, so it has to be detected by
+        // browser engine rather than by screen size or touch support alone.
+        // Open a blank tab synchronously, in the same click, for every
+        // Safari build, then fill it in once the PDF is ready.
+        const ua = navigator.userAgent;
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+        const isSafari = isIOS || (/Safari/i.test(ua) && !/Chrome|CriOS|FxiOS|Edg|Android/i.test(ua));
+        const pdfWindow = isSafari ? window.open("about:blank", "_blank") : null;
+
         if (!source || !activeReport || !source.innerHTML.trim()) {
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("There is no report content to download.");
             return;
         }
 
         if (typeof html2canvas !== "function") {
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("The PDF renderer is not loaded. Please refresh the page and try again.");
             return;
         }
 
         if (!window.jspdf || !window.jspdf.jsPDF) {
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("The PDF library is not loaded. Please refresh the page and try again.");
             return;
         }
 
         const pages = Array.from(source.querySelectorAll(".report-card-page"));
         if (!pages.length) {
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("There is no report page to download.");
             return;
         }
@@ -817,20 +839,9 @@
         downloadBtn.disabled = true;
         downloadBtn.innerHTML = '<i class="ti ti-loader-2"></i>';
 
-        const filenameBase = (
-            activeReport.class_name
-                ? `${activeReport.class_name}-${activeReport.report_type}`
-                : activeReport.report_type || "report"
-        ).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-            unit: "pt",
-            format: "a4",
-            orientation: "portrait",
-            compress: true,
-        });
-
+        // Everything below — including building the jsPDF instance — now runs
+        // inside the try/finally so any failure always re-enables the button
+        // instead of leaving it stuck spinning forever.
         const A4_WIDTH = 595.28;
         const A4_HEIGHT = 841.89;
         const PAGE_PADDING = 0;
@@ -838,6 +849,20 @@
         const MAX_HEIGHT = A4_HEIGHT;
 
         try {
+            const filenameBase = (
+                activeReport.class_name
+                    ? `${activeReport.class_name}-${activeReport.report_type}`
+                    : activeReport.report_type || "report"
+            ).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                unit: "pt",
+                format: "a4",
+                orientation: "portrait",
+                compress: true,
+            });
+
             // Wait until the currently visible report has finished laying out.
             await new Promise((resolve) => requestAnimationFrame(() =>
                 requestAnimationFrame(resolve)
@@ -1067,9 +1092,35 @@
                 );
             }
 
-            pdf.save(`${filenameBase || "report"}.pdf`);
+            const pdfFilename = `${filenameBase || "report"}.pdf`;
+            const pdfBlob = pdf.output("blob");
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+
+            if (pdfWindow && !pdfWindow.closed) {
+                // Safari (mobile or desktop): the tab was opened synchronously
+                // from the user's click, so load the generated PDF into that tab.
+                pdfWindow.location.href = pdfUrl;
+            } else if (isSafari) {
+                // The browser blocked the new tab — fall back to navigating the
+                // current tab to the PDF rather than silently doing nothing.
+                window.location.href = pdfUrl;
+            } else {
+                // Chrome, Firefox, Edge (desktop and Android): a plain blob
+                // download link is the most reliable path. We build this
+                // ourselves instead of calling jsPDF's own save(), since
+                // jsPDF's save() does its own Safari sniffing internally and
+                // that's what was causing this to misfire on desktop.
+                const link = document.createElement("a");
+                link.href = pdfUrl;
+                link.download = pdfFilename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            }
+            window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
         } catch (error) {
             console.error("Could not generate report PDF:", error);
+            if (pdfWindow && !pdfWindow.closed) pdfWindow.close();
             alert("Something went wrong generating the PDF. Please try again.");
         } finally {
             downloadBtn.disabled = false;
