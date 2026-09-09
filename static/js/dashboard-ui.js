@@ -140,6 +140,64 @@
         });
     }
 
+    function setupDashboardCarousels() {
+        document.querySelectorAll("[data-dash-carousel]").forEach(function (carousel) {
+            const track = carousel.querySelector(".dash-carousel-track");
+            const slides = Array.from(carousel.querySelectorAll(".dash-slide"));
+            const prevBtn = carousel.querySelector(".carousel-prev");
+            const nextBtn = carousel.querySelector(".carousel-next");
+            const dotsWrap = carousel.querySelector(".carousel-dots");
+            if (!track || slides.length < 2) {
+                if (prevBtn) prevBtn.style.display = "none";
+                if (nextBtn) nextBtn.style.display = "none";
+                return;
+            }
+
+            let index = 0;
+            let timer = null;
+            const delay = parseInt(carousel.dataset.autoplay, 10) || 6000;
+
+            const dots = slides.map(function (_, i) {
+                const dot = document.createElement("button");
+                dot.type = "button";
+                dot.className = "dot-btn" + (i === 0 ? " active" : "");
+                dot.setAttribute("aria-label", "Go to panel " + (i + 1));
+                dot.addEventListener("click", function () { goTo(i, true); });
+                if (dotsWrap) dotsWrap.appendChild(dot);
+                return dot;
+            });
+
+            function goTo(next, userInitiated) {
+                index = (next + slides.length) % slides.length;
+                track.style.transform = "translateX(-" + (index * 100) + "%)";
+                dots.forEach(function (dot, i) { dot.classList.toggle("active", i === index); });
+                if (userInitiated) restart();
+            }
+
+            function stop() {
+                if (timer) clearInterval(timer);
+                timer = null;
+            }
+
+            function start() {
+                stop();
+                timer = setInterval(function () { goTo(index + 1); }, delay);
+            }
+
+            function restart() { start(); }
+
+            if (prevBtn) prevBtn.addEventListener("click", function () { goTo(index - 1, true); });
+            if (nextBtn) nextBtn.addEventListener("click", function () { goTo(index + 1, true); });
+
+            carousel.addEventListener("mouseenter", stop);
+            carousel.addEventListener("mouseleave", start);
+            carousel.addEventListener("focusin", stop);
+            carousel.addEventListener("focusout", start);
+
+            start();
+        });
+    }
+
     function setupFlashDismiss() {
         document.querySelectorAll(".flash-stack .flash").forEach(function (el) {
             el.addEventListener("animationend", function (event) {
@@ -152,6 +210,7 @@
         setupThemeButtons();
         setupSidebar();
         setupGlobalSearch();
+        setupDashboardCarousels();
         setupFlashDismiss();
     });
 })();
