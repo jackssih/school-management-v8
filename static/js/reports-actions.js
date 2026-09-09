@@ -792,7 +792,14 @@
         const source = document.getElementById("reportDocument");
         const downloadBtn = document.getElementById("reportDownloadBtn");
 
+        // Mobile Safari can block the synthetic <a download> used by jsPDF.save()
+        // after an async canvas render. Open a tab immediately from the user's tap,
+        // then place the generated PDF URL into that tab once rendering finishes.
+        const isMobilePdfBrowser = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const mobilePdfWindow = isMobilePdfBrowser ? window.open("about:blank", "_blank") : null;
+
         if (!source || !activeReport || !source.innerHTML.trim()) {
+            if (mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
             alert("There is no report content to download.");
             return;
         }
@@ -1067,9 +1074,34 @@
                 );
             }
 
-            pdf.save(`${filenameBase || "report"}.pdf`);
+            const pdfFilename = `${filenameBase || "report"}.pdf`;
+
+            if (mobilePdfWindow && !mobilePdfWindow.closed) {
+                // Blob URLs are more reliable than the download attribute on
+                // mobile browsers, especially iOS Safari. The browser will show
+                // its native PDF viewer, from which the user can Save/Share.
+                const pdfBlob = pdf.output("blob");
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                mobilePdfWindow.location.href = pdfUrl;
+                // Keep the object URL alive while the native PDF viewer loads.
+                window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+            } else {
+                // Desktop/tablet browsers that support the download attribute
+                // retain the normal direct file download behavior.
+                const pdfBlob = pdf.output("blob");
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                const link = document.createElement("a");
+                link.href = pdfUrl;
+                link.download = pdfFilename;
+                link.style.display = "none";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+            }
         } catch (error) {
             console.error("Could not generate report PDF:", error);
+            if (mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
             alert("Something went wrong generating the PDF. Please try again.");
         } finally {
             downloadBtn.disabled = false;
