@@ -2973,8 +2973,12 @@ table.timetable-grid th:hover .timetable-period-tools {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-page);
+    background: linear-gradient(160deg, #eaf7f1 0%, #f4f7f4 38%, #fbf2e2 72%, #f2eefa 100%);
     padding: 24px;
+}
+
+[data-theme="dark"] .auth-page {
+    background: linear-gradient(160deg, #0f1f19 0%, #141816 38%, #1e1710 72%, #191524 100%);
 }
 
 .auth-card {
@@ -3199,9 +3203,10 @@ table.timetable-grid th:hover .timetable-period-tools {
     --modern-line: #e9ebe7;
     --modern-card: #ffffff;
     --modern-shadow: 0 10px 35px rgba(40, 51, 46, .055);
+    --modern-bg-grad: linear-gradient(160deg, #eaf7f1 0%, #f4f7f4 38%, #fbf2e2 72%, #f2eefa 100%);
 }
 
-body { background: var(--modern-bg); color: var(--modern-ink); }
+body { background: var(--modern-bg-grad); background-attachment: fixed; color: var(--modern-ink); }
 .app-shell { min-height: 100vh; padding: 12px; }
 .app-frame { display: grid; grid-template-columns: 266px minmax(0,1fr); min-height: calc(100vh - 24px); background: rgba(255,255,255,.48); border: 1px solid rgba(255,255,255,.9); border-radius: 28px; overflow: hidden; box-shadow: 0 20px 70px rgba(34,43,39,.08); }
 
@@ -3423,6 +3428,7 @@ body { background: var(--modern-bg); color: var(--modern-ink); }
     --modern-orange-soft:#3a2d21;
     --modern-green-soft:#203a30;
     --modern-shadow:0 10px 35px rgba(0,0,0,.22);
+    --modern-bg-grad: linear-gradient(160deg, #0f1f19 0%, #141816 38%, #1e1710 72%, #191524 100%);
 }
 /* Keep the date styling scoped to the header date, not the term pill text. */
 .topbar-title > span { margin-top:5px; font-size:12px; color:var(--modern-muted); }
@@ -4438,7 +4444,11 @@ table thead th:last-child,
     padding: 24px;
     position: relative;
     overflow: hidden;
-    background: #FBFCFA;
+    background: linear-gradient(160deg, #eaf7f1 0%, #f4f7f4 38%, #fbf2e2 72%, #f2eefa 100%);
+}
+
+[data-theme="dark"] .login-page {
+    background: linear-gradient(160deg, #0f1f19 0%, #141816 38%, #1e1710 72%, #191524 100%);
 }
 
 .login-watermarks {
