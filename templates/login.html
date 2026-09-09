@@ -163,7 +163,12 @@
 
                 <div class="form-group">
                     <label class="form-label" for="password">Password</label>
-                    <input class="form-input" type="password" id="password" name="password" placeholder="••••••••">
+                    <div class="password-field">
+                        <input class="form-input" type="password" id="password" name="password" placeholder="••••••••">
+                        <button type="button" class="password-toggle-btn" id="passwordToggleBtn" aria-label="Show password" aria-pressed="false">
+                            <i class="ti ti-eye" id="passwordToggleIcon"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <p class="login-forget"><a href="#">Forgot password?</a></p>
@@ -211,6 +216,22 @@
     });
 
     restart();
+})();
+
+(function () {
+    var input = document.getElementById("password");
+    var btn = document.getElementById("passwordToggleBtn");
+    var icon = document.getElementById("passwordToggleIcon");
+    if (!input || !btn || !icon) return;
+
+    btn.addEventListener("click", function () {
+        var showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        icon.classList.toggle("ti-eye", showing);
+        icon.classList.toggle("ti-eye-off", !showing);
+        btn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        btn.setAttribute("aria-pressed", showing ? "false" : "true");
+    });
 })();
 </script>
 

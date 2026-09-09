@@ -1077,6 +1077,42 @@ body {
     color: var(--text-primary);
 }
 
+.password-field {
+    position: relative;
+    display: flex;
+}
+
+.password-field .form-input {
+    padding-right: 40px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0;
+}
+
+.password-toggle-btn:hover {
+    color: var(--text-primary);
+    background: var(--teal-tint);
+}
+
+.password-toggle-btn i {
+    font-size: 18px;
+}
+
 .form-input:focus {
     outline: none;
     border-color: var(--teal);
