@@ -208,7 +208,7 @@ ADMIN_ONLY_ENDPOINTS = {
 }
 
 # Endpoints reachable without an active session.
-PUBLIC_ENDPOINTS = {"login", "static"}
+PUBLIC_ENDPOINTS = {"login", "static", "school_logo_image"}
 
 
 def generate_temp_password(length=10):
