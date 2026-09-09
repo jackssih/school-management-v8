@@ -1799,7 +1799,7 @@ def marksheet_data_for_class(class_name, sheet_type):
     rows = []
     division_counts = {"I": 0, "II": 0, "III": 0, "IV": 0, "U": 0, "X": 0}
 
-    for index, student in enumerate(students, 1):
+    for student in students:
         cells = []
         total_mark = 0
         total_aggregate = 0
@@ -1832,14 +1832,22 @@ def marksheet_data_for_class(class_name, sheet_type):
         if division:
             division_counts[division] = division_counts.get(division, 0) + 1
 
+        average_mark = (total_mark / mark_count) if mark_count else None
+
         rows.append({
-            "sn": index,
             "name": student["name"],
             "cells": cells,
             "total_mark": total_mark if mark_count else "",
             "total_aggregate": total_aggregate if aggregate_count else "",
             "division": division,
+            "_average_mark": average_mark,
         })
+
+    # Highest average on top; students with no marks entered sink to the bottom.
+    rows.sort(key=lambda r: (r["_average_mark"] is None, -(r["_average_mark"] or 0)))
+    for index, row in enumerate(rows, 1):
+        row["sn"] = index
+        del row["_average_mark"]
 
     return {
         "class_name": class_name,

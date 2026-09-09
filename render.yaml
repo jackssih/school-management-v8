@@ -3,7 +3,7 @@ services:
     name: school-management-v8
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && flask --app app db upgrade
     startCommand: gunicorn --workers 2 --timeout 120 app:app
     healthCheckPath: /health
     envVars:
