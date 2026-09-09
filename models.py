@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, LargeBinary, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -29,6 +29,13 @@ class School(db.Model, TimestampMixin):
     website: Mapped[str] = mapped_column(String(160), default="", nullable=False)
     reg_no: Mapped[str] = mapped_column(String(120), default="", nullable=False)
     logo_path: Mapped[str] = mapped_column(String(260), default="", nullable=False)
+    # The logo image itself, stored in the database rather than on local disk —
+    # Render's free web service filesystem is wiped on every restart/redeploy,
+    # so anything saved only to static/ is lost the moment the instance sleeps.
+    # logo_path is kept for the couple of images shipped inside the repo (git
+    # survives restarts); logo_data takes over once someone uploads their own.
+    logo_data: Mapped[bytes | None] = mapped_column(LargeBinary)
+    logo_mimetype: Mapped[str] = mapped_column(String(80), default="", nullable=False)
 
 
 class Term(db.Model, TimestampMixin):
@@ -51,6 +58,13 @@ class Staff(db.Model, TimestampMixin):
     role: Mapped[str] = mapped_column(String(40), default="teacher", nullable=False)
     photo_path: Mapped[str] = mapped_column(String(260), default="", nullable=False)
     signature_path: Mapped[str] = mapped_column(String(260), default="", nullable=False)
+    # Same database-backed storage as School.logo_data, and for the same reason
+    # — see the comment there. photo_path/signature_path are kept only for the
+    # sample images already committed to the repo.
+    photo_data: Mapped[bytes | None] = mapped_column(LargeBinary)
+    photo_mimetype: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    signature_data: Mapped[bytes | None] = mapped_column(LargeBinary)
+    signature_mimetype: Mapped[str] = mapped_column(String(80), default="", nullable=False)
     account_created: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     has_logged_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_on: Mapped[date] = mapped_column(Date, nullable=False)

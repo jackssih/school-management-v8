@@ -64,27 +64,29 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# --- Profile photo uploads ---
+# --- Profile photo / signature / logo uploads ---
 #
-# Staff photos are saved under static/images/staff/ so they can be served
-# directly by url_for('static', ...) — same as the school logo. The filename
-# on disk is "<staff-id>-<random hex>.<ext>" so a re-upload can never collide
-# with (or accidentally overwrite) another staff member's photo.
-STAFF_PHOTO_SUBDIR = "images/staff"
-STAFF_PHOTO_DIR = os.path.join(app.root_path, "static", STAFF_PHOTO_SUBDIR)
+# These used to be saved as files under static/images/... so they could be
+# served directly by url_for('static', ...). Render's free web service has an
+# ephemeral filesystem though — anything written there at runtime disappears
+# the moment the instance redeploys, restarts, or spins down from inactivity
+# — so a freshly-uploaded photo, signature, or logo could vanish without
+# warning. To survive that, uploads are now read into memory and stored as
+# bytes in the database instead (see Staff.photo_data/signature_data and
+# School.logo_data in models.py), which lives in Postgres and isn't wiped.
+#
+# The *_path columns and the static/images/... folders are kept only for the
+# handful of sample images already committed to the repo — those are safe
+# because git, not the runtime filesystem, is what restores them on deploy.
 ALLOWED_PHOTO_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-os.makedirs(STAFF_PHOTO_DIR, exist_ok=True)
 
-# Digital signatures (a scanned/photographed signature, uploaded the same way
-# as a profile photo) — used on report cards in place of a blank line to
-# sign, for the class teacher and the head teacher.
-STAFF_SIGNATURE_SUBDIR = "images/signatures"
-STAFF_SIGNATURE_DIR = os.path.join(app.root_path, "static", STAFF_SIGNATURE_SUBDIR)
-os.makedirs(STAFF_SIGNATURE_DIR, exist_ok=True)
-
-SCHOOL_LOGO_SUBDIR = "images/school"
-SCHOOL_LOGO_DIR = os.path.join(app.root_path, "static", SCHOOL_LOGO_SUBDIR)
-os.makedirs(SCHOOL_LOGO_DIR, exist_ok=True)
+_MIMETYPES_BY_EXTENSION = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "gif": "image/gif",
+    "webp": "image/webp",
+}
 
 BACKUP_SUBDIR = "backups"
 BACKUP_DIR = os.path.join(app.instance_path, BACKUP_SUBDIR)
@@ -95,47 +97,80 @@ def allowed_photo(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
 
 
-def save_staff_photo(staff_id, file_storage):
-    """Save an uploaded photo for a staff member and return its static-relative
-    path (e.g. 'images/staff/8-a1b2c3d4.jpg'), or None if nothing usable was
-    uploaded."""
+def read_uploaded_image(file_storage):
+    """Read an uploaded image into memory for database storage.
+
+    Returns (data, mimetype), or (None, None) if nothing usable was
+    uploaded. Callers should already have checked allowed_photo() on the
+    filename before calling this.
+    """
     if not file_storage or not file_storage.filename:
-        return None
-    if not allowed_photo(file_storage.filename):
-        return None
-
+        return None, None
     ext = secure_filename(file_storage.filename).rsplit(".", 1)[1].lower()
-    filename = f"{staff_id}-{os.urandom(4).hex()}.{ext}"
-    file_storage.save(os.path.join(STAFF_PHOTO_DIR, filename))
-    return f"{STAFF_PHOTO_SUBDIR}/{filename}"
+    mimetype = file_storage.mimetype or _MIMETYPES_BY_EXTENSION.get(ext, "application/octet-stream")
+    data = file_storage.read()
+    if not data:
+        return None, None
+    return data, mimetype
 
 
-def save_staff_signature(staff_id, file_storage):
-    """Save an uploaded digital signature image for a staff member, same
-    convention as save_staff_photo — used on report cards instead of a
-    blank 'Signature:' line."""
-    if not file_storage or not file_storage.filename:
-        return None
-    if not allowed_photo(file_storage.filename):
-        return None
-
-    ext = secure_filename(file_storage.filename).rsplit(".", 1)[1].lower()
-    filename = f"{staff_id}-{os.urandom(4).hex()}.{ext}"
-    file_storage.save(os.path.join(STAFF_SIGNATURE_DIR, filename))
-    return f"{STAFF_SIGNATURE_SUBDIR}/{filename}"
+def staff_photo_url(staff):
+    """URL for a staff member's profile photo — database-backed image if one
+    has been uploaded, else the legacy static-file path, else empty."""
+    if not staff:
+        return ""
+    if staff.photo_data:
+        return url_for("staff_photo_image", staff_id=staff.id, v=int(staff.updated_at.timestamp()) if staff.updated_at else 0)
+    if staff.photo_path:
+        return url_for("static", filename=staff.photo_path)
+    return ""
 
 
-def save_school_logo(file_storage):
-    """Save an uploaded school logo, same convention as save_staff_photo."""
-    if not file_storage or not file_storage.filename:
-        return None
-    if not allowed_photo(file_storage.filename):
-        return None
+def staff_signature_url(staff):
+    """URL for a staff member's digital signature — same fallback order as
+    staff_photo_url."""
+    if not staff:
+        return ""
+    if staff.signature_data:
+        return url_for("staff_signature_image", staff_id=staff.id, v=int(staff.updated_at.timestamp()) if staff.updated_at else 0)
+    if staff.signature_path:
+        return url_for("static", filename=staff.signature_path)
+    return ""
 
-    ext = secure_filename(file_storage.filename).rsplit(".", 1)[1].lower()
-    filename = f"logo-{os.urandom(4).hex()}.{ext}"
-    file_storage.save(os.path.join(SCHOOL_LOGO_DIR, filename))
-    return f"{SCHOOL_LOGO_SUBDIR}/{filename}"
+
+def school_logo_url(school):
+    """URL for the school logo — same fallback order as staff_photo_url."""
+    if not school:
+        return ""
+    if school.logo_data:
+        return url_for("school_logo_image", v=int(school.updated_at.timestamp()) if school.updated_at else 0)
+    if school.logo_path:
+        return url_for("static", filename=school.logo_path)
+    return ""
+
+
+@app.route("/uploads/staff/<int:staff_id>/photo")
+def staff_photo_image(staff_id):
+    staff = Staff.query.get_or_404(staff_id)
+    if not staff.photo_data:
+        abort(404)
+    return Response(staff.photo_data, mimetype=staff.photo_mimetype or "image/png")
+
+
+@app.route("/uploads/staff/<int:staff_id>/signature")
+def staff_signature_image(staff_id):
+    staff = Staff.query.get_or_404(staff_id)
+    if not staff.signature_data:
+        abort(404)
+    return Response(staff.signature_data, mimetype=staff.signature_mimetype or "image/png")
+
+
+@app.route("/uploads/school/logo")
+def school_logo_image():
+    school = get_school()
+    if not school or not school.logo_data:
+        abort(404)
+    return Response(school.logo_data, mimetype=school.logo_mimetype or "image/png")
 
 
 # --- Login & access control ---
@@ -487,7 +522,7 @@ def get_school():
 
 def school_info_dict(school):
     if not school:
-        return dict(SCHOOL_INFO)
+        return {**SCHOOL_INFO, "logo_url": ""}
     return {
         "type": school.type,
         "address": school.address,
@@ -496,6 +531,7 @@ def school_info_dict(school):
         "website": school.website,
         "reg_no": school.reg_no,
         "logo_path": school.logo_path,
+        "logo_url": school_logo_url(school),
     }
 
 
@@ -838,7 +874,7 @@ def head_teacher_record():
         return {"name": "", "signature_url": ""}
     return {
         "name": head_teacher.name,
-        "signature_url": url_for("static", filename=head_teacher.signature_path) if head_teacher.signature_path else "",
+        "signature_url": staff_signature_url(head_teacher),
     }
 
 
@@ -880,9 +916,9 @@ def staff_record(member):
         "role": member.role,
         "initials": initials_for(member.name),
         "photo_path": member.photo_path,
-        "photo_url": url_for("static", filename=member.photo_path) if member.photo_path else "",
+        "photo_url": staff_photo_url(member),
         "signature_path": member.signature_path,
-        "signature_url": url_for("static", filename=member.signature_path) if member.signature_path else "",
+        "signature_url": staff_signature_url(member),
         "account_created": member.account_created,
         "has_logged_in": member.has_logged_in,
         "is_active": member.is_active,
@@ -1883,11 +1919,7 @@ def report_students_payload(report):
                 "lin": student.get("lin", ""),
                 "class_name": class_name,
                 "class_teacher": class_record["teacher"] if class_record else "",
-                "class_teacher_signature_url": (
-                    url_for("static", filename=class_teacher_staff.signature_path)
-                    if class_teacher_staff and class_teacher_staff.signature_path
-                    else ""
-                ),
+                "class_teacher_signature_url": staff_signature_url(class_teacher_staff),
                 "enrollment_date": student_enrollment_date(student["id"], student.get("created_on", "")),
                 "level": class_level(class_name),
                 "main_subjects": main_subjects_for_class(class_name),
@@ -2091,7 +2123,7 @@ def base_context(active_endpoint):
             "initials": initials_for(account.name),
             "role": account.role,
             "theme": account.theme,
-            "photo_url": url_for("static", filename=account.photo_path) if account.photo_path else "",
+            "photo_url": staff_photo_url(account),
         }
     else:
         user = {"id": None, "name": "", "initials": "?", "role": "teacher", "theme": "light", "photo_url": ""}
@@ -2104,9 +2136,7 @@ def base_context(active_endpoint):
         "timetable": "Timetable", "events": "Events", "settings_school": "Settings",
         "profile": "Profile", "change_password": "Change Password",
     }
-    logo_url = ""
-    if school and school.logo_path:
-        logo_url = url_for("static", filename=school.logo_path)
+    logo_url = school_logo_url(school)
     year_label = ""
     if current_term:
         year = current_term.start_date.year
@@ -2461,6 +2491,7 @@ def login():
     return render_template(
         "login.html",
         school_name=school.name if school else SCHOOL_NAME,
+        school_logo_url=school_logo_url(school),
         errors=errors,
         email=email,
         next_url=next_url,
@@ -2770,9 +2801,10 @@ def save_school_settings():
         if not allowed_photo(logo_file.filename):
             flash("Logo must be a PNG, JPG, GIF, or WEBP image.", "error")
             return redirect(url_for("settings_school"))
-        saved_path = save_school_logo(logo_file)
-        if saved_path:
-            school.logo_path = saved_path
+        logo_data, logo_mimetype = read_uploaded_image(logo_file)
+        if logo_data:
+            school.logo_data = logo_data
+            school.logo_mimetype = logo_mimetype
 
     db.session.commit()
     flash("School profile was updated.", "success")
@@ -2970,9 +3002,10 @@ def edit_profile():
                 return jsonify({"success": False, "errors": {"photo": message}}), 400
             flash(message, "error")
             return redirect(url_for("profile"))
-        saved_path = save_staff_photo(account.id, photo_file)
-        if saved_path:
-            account.photo_path = saved_path
+        photo_data, photo_mimetype = read_uploaded_image(photo_file)
+        if photo_data:
+            account.photo_data = photo_data
+            account.photo_mimetype = photo_mimetype
 
     signature_file = request.files.get("signature")
     if signature_file and signature_file.filename:
@@ -2982,9 +3015,10 @@ def edit_profile():
                 return jsonify({"success": False, "errors": {"signature": message}}), 400
             flash(message, "error")
             return redirect(url_for("profile"))
-        saved_signature_path = save_staff_signature(account.id, signature_file)
-        if saved_signature_path:
-            account.signature_path = saved_signature_path
+        signature_data, signature_mimetype = read_uploaded_image(signature_file)
+        if signature_data:
+            account.signature_data = signature_data
+            account.signature_mimetype = signature_mimetype
 
     account.name = name
     account.email = email
@@ -5066,6 +5100,27 @@ def print_timetable_board(board_id):
         }
     )
     return render_template("timetable_print.html", **context)
+# ===== RUN PENDING MIGRATIONS ON STARTUP =====
+# Must run before every startup block below. Those blocks query tables like
+# Staff/School directly, and SQLAlchemy always selects every mapped column —
+# so the moment a migration adds a new column (e.g. the photo_data/
+# signature_data/logo_data columns added for database-backed uploads), any
+# query against that table fails with "no such column" until the migration
+# has actually been applied. Running the upgrade here first means the schema
+# is always caught up before anything else touches the database — whether
+# this module is imported by gunicorn, by `flask db upgrade` itself, or by a
+# one-off script. Safe to call every time the process starts: Alembic no-ops
+# once the database is already at the latest revision.
+def _run_pending_migrations():
+    from flask_migrate import upgrade as migrate_upgrade
+    with app.app_context():
+        try:
+            migrate_upgrade()
+            print("[STARTUP] ✓ Database migrations applied")
+        except Exception as e:
+            print(f"[STARTUP] ⚠ Warning: Could not run migrations: {e}")
+
+_run_pending_migrations()
 # ===== AUTO-INITIALIZE DATABASE ON STARTUP =====
 def _init_db_on_startup():
     """
@@ -5102,9 +5157,13 @@ def _auto_create_admin():
     with app.app_context():
         from datetime import date
         from werkzeug.security import generate_password_hash
-        
+
         # Check if admin already exists
-        existing_admin = Staff.query.filter_by(email="admin@school.com").first()
+        try:
+            existing_admin = Staff.query.filter_by(email="admin@school.com").first()
+        except Exception as e:
+            print(f"[STARTUP] Admin check failed: {e}")
+            return
         if existing_admin:
             return  # Already set up, do nothing
         

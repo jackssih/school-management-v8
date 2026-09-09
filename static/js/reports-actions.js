@@ -247,8 +247,8 @@
     // and the attendance summary page) ---
 
     function reportBrandHeader() {
-        const crestInner = SCHOOL_INFO.logo_path
-            ? `<img src="/static/${SCHOOL_INFO.logo_path}" alt="${escapeHtml(SCHOOL_NAME)} logo">`
+        const crestInner = SCHOOL_INFO.logo_url
+            ? `<img src="${SCHOOL_INFO.logo_url}" alt="${escapeHtml(SCHOOL_NAME)} logo">`
             : escapeHtml(schoolInitials(SCHOOL_NAME));
         return `
             <div class="report-card-brand">
@@ -511,8 +511,8 @@
 
         const otherSubjectsHtml = otherSubjectRows(student, reportType);
 
-        const watermarkInner = SCHOOL_INFO.logo_path
-            ? `<img src="/static/${SCHOOL_INFO.logo_path}" alt="">`
+        const watermarkInner = SCHOOL_INFO.logo_url
+            ? `<img src="${SCHOOL_INFO.logo_url}" alt="">`
             : `<div class="report-watermark-placeholder"></div>`;
 
         // End-of-term is intentionally a TWO-PAGE report for every student.
