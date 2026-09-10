@@ -215,6 +215,15 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label" for="student-gender">Gender</label>
+                    <select class="form-input" id="student-gender" name="gender">
+                        <option value="">Select gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label class="form-label" for="student-dob">Date of birth</label>
                     <input class="form-input" type="date" id="student-dob" name="date_of_birth">
                 </div>
@@ -382,9 +391,19 @@
             </div>
 
             <form class="modal-form" id="studentEditForm" method="post">
+                <input type="hidden" id="student-edit-registration-number" name="registration_number">
                 <div class="form-group">
                     <label class="form-label" for="student-edit-name">Full name</label>
                     <input class="form-input" type="text" id="student-edit-name" name="name">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="student-edit-gender">Gender</label>
+                    <select class="form-input" id="student-edit-gender" name="gender">
+                        <option value="">Select gender</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                    </select>
                 </div>
 
                 <div class="form-group">

@@ -346,10 +346,10 @@ STAFF = [
 ]
 
 STUDENTS = [
-    {"id": 1, "registration_number": "STU-2026-001", "name": "Nabirye Grace", "lin": "", "date_of_birth": "2015-03-12", "enrolled_class": "Primary 5", "created_on": "12-01-2026"},
-    {"id": 2, "registration_number": "STU-2026-002", "name": "Okello Brian", "lin": "UG-LIN-88213", "date_of_birth": "2016-07-01", "enrolled_class": "Primary 3", "created_on": "12-01-2026"},
-    {"id": 3, "registration_number": "STU-2026-003", "name": "Achen Mercy", "lin": "", "date_of_birth": "2014-11-23", "enrolled_class": "", "created_on": "03-02-2026"},
-    {"id": 4, "registration_number": "STU-2026-004", "name": "Kato Emmanuel", "lin": "UG-LIN-90042", "date_of_birth": "2015-01-09", "enrolled_class": "Primary 4", "created_on": "20-01-2026"},
+    {"id": 1, "registration_number": "STU-2026-001", "name": "Nabirye Grace", "gender": "Female", "lin": "", "date_of_birth": "2015-03-12", "enrolled_class": "Primary 5", "created_on": "12-01-2026"},
+    {"id": 2, "registration_number": "STU-2026-002", "name": "Okello Brian", "gender": "Male", "lin": "UG-LIN-88213", "date_of_birth": "2016-07-01", "enrolled_class": "Primary 3", "created_on": "12-01-2026"},
+    {"id": 3, "registration_number": "STU-2026-003", "name": "Achen Mercy", "gender": "Female", "lin": "", "date_of_birth": "2014-11-23", "enrolled_class": "", "created_on": "03-02-2026"},
+    {"id": 4, "registration_number": "STU-2026-004", "name": "Kato Emmanuel", "gender": "Male", "lin": "UG-LIN-90042", "date_of_birth": "2015-01-09", "enrolled_class": "Primary 4", "created_on": "20-01-2026"},
 ]
 
 # --- Academics seed data ---
@@ -588,6 +588,7 @@ def seed_initial_database():
             id=student["id"],
             registration_number=student["registration_number"],
             name=student["name"],
+            gender=student.get("gender", ""),
             lin=student.get("lin", ""),
             date_of_birth=parse_seed_date(student.get("date_of_birth")) if student.get("date_of_birth") else None,
             current_class_name=student.get("enrolled_class", ""),
@@ -937,6 +938,7 @@ def student_record(student):
         "id": student.id,
         "registration_number": student.registration_number,
         "name": student.name,
+        "gender": student.gender,
         "lin": student.lin,
         "date_of_birth": format_input_date(student.date_of_birth),
         "enrolled_class": student.current_class_name,
@@ -957,6 +959,18 @@ def staff_status(member):
 def student_status(student):
     enrolled_class = student.get("enrolled_class") if isinstance(student, dict) else student.current_class_name
     return "Active" if enrolled_class else "Inactive"
+
+
+def normalize_gender(value):
+    """Accepts Male/Female (any case), or M/F shorthand, from CSV uploads.
+    Returns "Male", "Female", or "" if the value doesn't match either.
+    """
+    value = (value or "").strip().lower()
+    if value in ("male", "m"):
+        return "Male"
+    if value in ("female", "f"):
+        return "Female"
+    return ""
 
 
 def next_id(records):
@@ -1299,7 +1313,6 @@ def enrollment_student_records(class_id):
         records.append({
             **student_record(student),
             "enrollment_date": format_display_date(enrolled_date),
-            "gender": "—",
         })
     return records
 
@@ -3174,10 +3187,10 @@ def download_staff_upload_template():
 
 @app.route("/profiles/students/upload-template")
 def download_student_upload_template():
-    # Mirrors the "New student" form fields exactly: name, date_of_birth, lin.
+    # Mirrors the "New student" form fields exactly: name, gender, date_of_birth, lin.
     # No registration_number column — that's auto-assigned on save, same as
     # when a student is added one at a time.
-    csv_body = "name,date_of_birth,lin\nNabirye Grace,2015-03-12,\n"
+    csv_body = "name,gender,date_of_birth,lin\nNabirye Grace,Female,2015-03-12,\n"
     return Response(
         csv_body,
         mimetype="text/csv",
@@ -3324,7 +3337,7 @@ def new_staff():
 def new_student():
     context = base_context("profiles")
     errors = {}
-    form = {"registration_number": "", "name": "", "lin": "", "date_of_birth": ""}
+    form = {"registration_number": "", "name": "", "gender": "", "lin": "", "date_of_birth": ""}
     wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.method == "POST":
@@ -3332,6 +3345,7 @@ def new_student():
         # but still honor one if a caller supplies it, so long as it's unique.
         form["registration_number"] = request.form.get("registration_number", "").strip()
         form["name"] = request.form.get("name", "").strip()
+        form["gender"] = request.form.get("gender", "").strip()
         form["lin"] = request.form.get("lin", "").strip()
         form["date_of_birth"] = request.form.get("date_of_birth", "").strip()
 
@@ -3340,6 +3354,8 @@ def new_student():
 
         if not form["name"]:
             errors["name"] = "Full name is required."
+        if form["gender"] not in ("Male", "Female"):
+            errors["gender"] = "Select the student's gender."
         if not form["date_of_birth"]:
             errors["date_of_birth"] = "Date of birth is required."
         # LIN is intentionally optional here — it can be added or corrected later from the student's profile.
@@ -3353,6 +3369,7 @@ def new_student():
                 Student(
                     registration_number=reg_no,
                     name=form["name"],
+                    gender=form["gender"],
                     lin=form["lin"],
                     date_of_birth=parse_seed_date(form["date_of_birth"]),
                     current_class_name="",
@@ -3462,12 +3479,18 @@ def bulk_upload_students():
 
     for row_number, row in enumerate(rows, start=2):  # row 1 is the header
         name = (row.get("name") or "").strip()
+        gender_raw = (row.get("gender") or "").strip()
         lin = (row.get("lin") or "").strip()
         dob_raw = (row.get("date_of_birth") or "").strip()
         reg_no = (row.get("registration_number") or "").strip()
 
         if not name:
             skipped.append({"row": row_number, "reason": "Missing full name."})
+            continue
+
+        gender = normalize_gender(gender_raw)
+        if not gender:
+            skipped.append({"row": row_number, "reason": "Gender must be Male or Female."})
             continue
 
         date_of_birth = parse_strict_date(dob_raw) if dob_raw else None
@@ -3487,6 +3510,7 @@ def bulk_upload_students():
             Student(
                 registration_number=reg_no,
                 name=name,
+                gender=gender,
                 lin=lin,
                 date_of_birth=date_of_birth,
                 current_class_name="",
@@ -3577,16 +3601,19 @@ def edit_student(student_id):
     wants_json = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     registration_number = request.form.get("registration_number", "").strip()
     name = request.form.get("name", "").strip()
+    gender = request.form.get("gender", "").strip()
     date_of_birth = request.form.get("date_of_birth", "").strip()
 
-    if not registration_number or not name or not date_of_birth:
-        message = "Registration number, full name, and date of birth are required."
+    if not registration_number or not name or gender not in ("Male", "Female") or not date_of_birth:
+        message = "Registration number, full name, gender, and date of birth are required."
         if wants_json:
             errors = {}
             if not registration_number:
                 errors["registration_number"] = "Registration number is required."
             if not name:
                 errors["name"] = "Full name is required."
+            if gender not in ("Male", "Female"):
+                errors["gender"] = "Select the student's gender."
             if not date_of_birth:
                 errors["date_of_birth"] = "Date of birth is required."
             return jsonify({"success": False, "errors": errors}), 400
@@ -3603,6 +3630,7 @@ def edit_student(student_id):
 
     student.registration_number = registration_number
     student.name = name
+    student.gender = gender
     student.date_of_birth = parse_seed_date(date_of_birth)
     student.lin = request.form.get("lin", "").strip()
     # enrolled_class is intentionally untouched here — enrollment is managed under Academics.

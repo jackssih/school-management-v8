@@ -103,6 +103,7 @@ class Student(db.Model, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     registration_number: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    gender: Mapped[str] = mapped_column(String(10), default="", nullable=False)
     lin: Mapped[str] = mapped_column(String(80), default="", nullable=False)
     date_of_birth: Mapped[date | None] = mapped_column(Date)
     current_class_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)

@@ -32,6 +32,7 @@
     window.openStudentView = function (student) {
         document.getElementById("studentViewBody").innerHTML = `
             <div class="view-row"><span class="view-label">Full name</span><span>${student.name || "—"}</span></div>
+            <div class="view-row"><span class="view-label">Gender</span><span>${student.gender || "—"}</span></div>
             <div class="view-row"><span class="view-label">Date of birth</span><span>${student.date_of_birth || "—"}</span></div>
             <div class="view-row"><span class="view-label">LIN</span><span>${student.lin || "—"}</span></div>
             <div class="view-row"><span class="view-label">Class</span><span>${student.class_name || "—"}</span></div>
@@ -44,7 +45,9 @@
     window.openStudentEdit = function (student) {
         const form = document.getElementById("studentEditForm");
         form.action = `${STUDENT_EDIT_URL_BASE}/${student.id}/edit`;
+        document.getElementById("student-edit-registration-number").value = student.registration_number || "";
         document.getElementById("student-edit-name").value = student.name || "";
+        document.getElementById("student-edit-gender").value = student.gender || "";
         document.getElementById("student-edit-dob").value = student.date_of_birth || "";
         document.getElementById("student-edit-lin").value = student.lin || "";
         openModal("studentEditModal");

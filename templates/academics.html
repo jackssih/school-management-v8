@@ -222,7 +222,7 @@
                         <tr>
                             <td class="name-cell">{{ r.name }}</td>
                             <td>{{ r.registration_number }}</td>
-                            <td>{{ r.gender }}</td>
+                            <td>{{ r.gender or "—" }}</td>
                             <td><span class="status-badge status-active">{{ r.status }}</span></td>
                             <td class="date-cell">{{ r.enrollment_date }}</td>
                             <td class="col-action">
