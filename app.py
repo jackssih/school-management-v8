@@ -1359,20 +1359,24 @@ def resolve_promotion_target(current_class_name, class_names):
     """Work out which class a student in `current_class_name` moves into
     next year, matched against the school's own existing class list.
 
-    Returns {"outcome": ..., "class_name": ...} where outcome is:
+    Returns {"outcome": ..., "class_name": ..., "reason": ...} where
+    outcome is:
       - "matched": class_name is the class to move them into.
       - "final_year": already in the top class (Primary 7) — there's
-        nowhere further to go, so they've completed primary school.
-      - "unresolved": the name doesn't parse, or the next class can't be
-        worked out with confidence (e.g. two streams next level and no
-        matching stream or single plain class to fall back to).
+        nowhere further to go, so they've completed primary school. This
+        is expected and is never treated as a problem to flag.
+      - "unresolved": class_name is None and reason explains why —
+        "not_primary_class" (name doesn't parse at all), "no_next_class"
+        (no class at all exists at the next level — nothing to promote
+        into), or "ambiguous_stream" (more than one stream exists at the
+        next level and none of them, nor a single plain class, matches).
     """
     parsed = parse_class_level_stream(current_class_name)
     if parsed is None:
-        return {"outcome": "unresolved", "class_name": None}
+        return {"outcome": "unresolved", "class_name": None, "reason": "not_primary_class"}
     level, stream = parsed
     if level >= 7:
-        return {"outcome": "final_year", "class_name": None}
+        return {"outcome": "final_year", "class_name": None, "reason": None}
 
     next_level = level + 1
     next_level_classes = []
@@ -1382,23 +1386,23 @@ def resolve_promotion_target(current_class_name, class_names):
             next_level_classes.append((parsed_next[1], name))
 
     if not next_level_classes:
-        return {"outcome": "unresolved", "class_name": None}
+        return {"outcome": "unresolved", "class_name": None, "reason": "no_next_class"}
 
     plain_classes = [name for class_stream, name in next_level_classes if not class_stream]
 
     if stream:
         for class_stream, name in next_level_classes:
             if class_stream == stream:
-                return {"outcome": "matched", "class_name": name}
+                return {"outcome": "matched", "class_name": name, "reason": None}
         if len(plain_classes) == 1:
-            return {"outcome": "matched", "class_name": plain_classes[0]}
-        return {"outcome": "unresolved", "class_name": None}
+            return {"outcome": "matched", "class_name": plain_classes[0], "reason": None}
+        return {"outcome": "unresolved", "class_name": None, "reason": "ambiguous_stream"}
 
     if len(plain_classes) == 1:
-        return {"outcome": "matched", "class_name": plain_classes[0]}
+        return {"outcome": "matched", "class_name": plain_classes[0], "reason": None}
     if len(next_level_classes) == 1:
-        return {"outcome": "matched", "class_name": next_level_classes[0][1]}
-    return {"outcome": "unresolved", "class_name": None}
+        return {"outcome": "matched", "class_name": next_level_classes[0][1], "reason": None}
+    return {"outcome": "unresolved", "class_name": None, "reason": "ambiguous_stream"}
 
 
 def latest_promotion_run():
@@ -1439,6 +1443,18 @@ def promotion_run_summary(run):
 
 def academic_redirect(tab):
     return url_for("academics", tab=tab)
+
+
+def promotion_json_or_redirect(message, category="success"):
+    """Same shape as json_or_redirect, but lets the flash use an "error"
+    style for guard-clause notices (e.g. "nothing to promote") while still
+    telling the promotion-tab modals (which submit over fetch/XHR) to
+    navigate back so the flash actually shows up."""
+    flash(message, category)
+    redirect_url = academic_redirect("promotion")
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"success": True, "redirect": redirect_url})
+    return redirect(redirect_url)
 
 
 def json_or_redirect(tab, message):
@@ -4093,14 +4109,15 @@ def run_promotion():
     students = Student.query.filter(Student.current_class_name != "").order_by(Student.name).all()
 
     if not students:
-        flash("There are no enrolled students to promote.", "error")
-        return redirect(academic_redirect("promotion"))
+        return promotion_json_or_redirect("There are no enrolled students to promote.", "error")
 
     run = PromotionRun(run_date=date.today(), label=f"Promotion — {date.today().strftime('%d %b %Y')}")
     db.session.add(run)
     db.session.flush()
 
     counts = {"Moved": 0, "Stayed": 0, "Completed": 0, "Discontinued": 0, "Unresolved": 0}
+    no_next_class_names = set()
+    ambiguous_class_names = set()
     for student in students:
         decision = decisions.get(student.id, PROMOTION_DEFAULT_DECISION)
         from_class = student.current_class_name
@@ -4124,6 +4141,10 @@ def run_promotion():
                 student.current_class_name = ""
             else:
                 outcome = "Unresolved"
+                if target["reason"] == "no_next_class":
+                    no_next_class_names.add(from_class)
+                elif target["reason"] == "ambiguous_stream":
+                    ambiguous_class_names.add(from_class)
 
         counts[outcome] += 1
         db.session.add(PromotionRunEntry(
@@ -4149,9 +4170,22 @@ def run_promotion():
     if counts["Discontinued"]:
         parts.append(f"{counts['Discontinued']} discontinued")
     if counts["Unresolved"]:
-        parts.append(f"{counts['Unresolved']} need manual placement")
-    flash("Promotion applied: " + ", ".join(parts) + ".", "success")
-    return redirect(academic_redirect("promotion"))
+        parts.append(f"{counts['Unresolved']} left in place, needing manual placement")
+    message = "Promotion applied: " + ", ".join(parts) + "."
+
+    if no_next_class_names:
+        message += (
+            " No next class exists yet for: " + ", ".join(sorted(no_next_class_names))
+            + " — create the next class first, then promote those students individually."
+        )
+    if ambiguous_class_names:
+        message += (
+            " More than one possible next class (streams) was found for: "
+            + ", ".join(sorted(ambiguous_class_names)) + " — choose it manually for those students."
+        )
+
+    category = "error" if (no_next_class_names or ambiguous_class_names) and not counts["Moved"] else "success"
+    return promotion_json_or_redirect(message, category)
 
 
 def _revert_promotion_entry(entry):
@@ -4174,8 +4208,7 @@ def undo_promotion():
     """Undo the most recent promotion run in full."""
     run = latest_promotion_run()
     if run is None or run.status != "Applied":
-        flash("There's no applied promotion to undo.", "error")
-        return redirect(academic_redirect("promotion"))
+        return promotion_json_or_redirect("There's no applied promotion to undo.", "error")
 
     restored = 0
     for entry in run.entries:
@@ -4185,8 +4218,9 @@ def undo_promotion():
         restored += 1
     run.status = "Reverted"
     db.session.commit()
-    flash(f"Promotion undone — {restored} student(s) restored to their previous class.", "success")
-    return redirect(academic_redirect("promotion"))
+    return promotion_json_or_redirect(
+        f"Promotion undone — {restored} student(s) restored to their previous class.", "success"
+    )
 
 
 @app.route("/academics/promotion/undo-student/<int:student_id>", methods=["POST"])
@@ -4201,8 +4235,7 @@ def undo_promotion_student(student_id):
         .first()
     )
     if entry is None:
-        flash("This student has no recent promotion to undo.", "error")
-        return redirect(academic_redirect("promotion"))
+        return promotion_json_or_redirect("This student has no recent promotion to undo.", "error")
 
     student = entry.student
     name = student.name if student else "Student"
@@ -4214,8 +4247,9 @@ def undo_promotion_student(student_id):
         run.status = "Reverted"
 
     db.session.commit()
-    flash(f"{name}'s promotion was undone — moved back to {from_class or 'Not enrolled'}.", "success")
-    return redirect(academic_redirect("promotion"))
+    return promotion_json_or_redirect(
+        f"{name}'s promotion was undone — moved back to {from_class or 'Not enrolled'}.", "success"
+    )
 
 
 # --- Placeholder routes for the rest of the main menu ---
