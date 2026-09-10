@@ -167,6 +167,48 @@ class PromotionDecision(db.Model, TimestampMixin):
     student: Mapped[Student] = relationship()
 
 
+class PromotionRun(db.Model, TimestampMixin):
+    """One 'move everyone up to the next class' action, applied at the end
+    of a school year. Kept as its own row (with a PromotionRunEntry per
+    student) rather than just mutating Student.current_class_name in
+    place, so the whole batch — or any single student in it — can be
+    undone later without having to guess what changed."""
+
+    __tablename__ = "promotion_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_date: Mapped[date] = mapped_column(Date, nullable=False)
+    label: Mapped[str] = mapped_column(String(120), default="", nullable=False)
+    # "Applied" while the move is in effect, "Reverted" once undone as a whole.
+    status: Mapped[str] = mapped_column(String(20), default="Applied", nullable=False)
+
+    entries: Mapped[list["PromotionRunEntry"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan", order_by="PromotionRunEntry.id"
+    )
+
+
+class PromotionRunEntry(db.Model, TimestampMixin):
+    """One student's outcome within a PromotionRun: which class they moved
+    from/to (if any), what kind of outcome it was, and whether that one
+    line has since been undone on its own — independent of whether the
+    rest of the run has been."""
+
+    __tablename__ = "promotion_run_entries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("promotion_runs.id"), nullable=False)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    from_class_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    to_class_name: Mapped[str] = mapped_column(String(80), default="", nullable=False)
+    # Moved | Stayed | Completed | Discontinued | Unresolved
+    outcome: Mapped[str] = mapped_column(String(20), default="Moved", nullable=False)
+    reverted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    run: Mapped[PromotionRun] = relationship(back_populates="entries")
+    student: Mapped[Student] = relationship()
+
+
 class Assessment(db.Model, TimestampMixin):
     __tablename__ = "assessments"
 

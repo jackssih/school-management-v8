@@ -46,6 +46,18 @@
             <button type="button" class="primary-btn" onclick="openModal('enrollmentStudentModal')">
                 <i class="ti ti-plus"></i> Enroll Student
             </button>
+            {% elif active_tab == 'promotion' %}
+            <button type="button" class="secondary-btn" onclick="openModal('promotionAddModal')">
+                <i class="ti ti-plus"></i> Add {{ singular_label }}
+            </button>
+            {% if latest_promotion_run and latest_promotion_run.status == 'Applied' %}
+            <button type="button" class="secondary-btn" onclick="openModal('promotionUndoModal')">
+                <i class="ti ti-refresh"></i> Undo last promotion
+            </button>
+            {% endif %}
+            <button type="button" class="primary-btn" onclick="openModal('promotionRunModal')">
+                <i class="ti ti-arrow-up-right"></i> Promote to next year
+            </button>
             {% elif active_tab != 'subjects' and active_tab != 'enrollment' %}
             <button type="button" class="primary-btn" onclick="openModal('{{ active_tab }}AddModal')">
                 <i class="ti ti-plus"></i> Add {{ singular_label }}
@@ -59,6 +71,55 @@
         <a class="back-pill" href="{{ url_for('academics', tab=active_tab) }}">
             <i class="ti ti-arrow-left"></i> All Classes
         </a>
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'promotion' and latest_promotion_run %}
+    <div class="profiles-table-wrap" style="margin-bottom: 16px;">
+        <p class="profiles-heading" style="padding: 12px 16px 0;">
+            Last promotion — {{ latest_promotion_run.run_date }}
+            <span class="status-badge {{ 'status-active' if latest_promotion_run.status == 'Applied' else 'status-pending' }}">
+                {{ latest_promotion_run.status }}
+            </span>
+        </p>
+        <p class="form-subheading" style="padding: 4px 16px 12px;">
+            {{ latest_promotion_run.moved }} promoted · {{ latest_promotion_run.stayed }} kept back
+            {%- if latest_promotion_run.completed %} · {{ latest_promotion_run.completed }} completed Primary 7{% endif %}
+            {%- if latest_promotion_run.discontinued %} · {{ latest_promotion_run.discontinued }} discontinued{% endif %}
+            {%- if latest_promotion_run.unresolved %} · {{ latest_promotion_run.unresolved }} need manual placement{% endif %}
+            {%- if latest_promotion_run.reverted %} · {{ latest_promotion_run.reverted }} undone{% endif %}
+        </p>
+        <table class="profiles-table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Outcome</th>
+                    <th class="col-action">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in latest_promotion_run.entries %}
+                <tr>
+                    <td class="name-cell">{{ e.student_name }}</td>
+                    <td>{{ e.from_class_name or "—" }}</td>
+                    <td>{{ e.to_class_name or "—" }}</td>
+                    <td>{{ "Undone" if e.reverted else e.outcome }}</td>
+                    <td class="col-action">
+                        {% if not e.reverted and e.outcome != 'Unresolved' %}
+                        <button type="button" class="icon-btn" title="Undo this student's promotion"
+                                onclick="document.getElementById('undo-student-form-{{ e.student_id }}').submit()">
+                            <i class="ti ti-refresh"></i>
+                        </button>
+                        <form id="undo-student-form-{{ e.student_id }}"
+                              action="{{ url_for('undo_promotion_student', student_id=e.student_id) }}" method="post" hidden></form>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
@@ -363,6 +424,48 @@
                 <button type="button" class="secondary-btn" onclick="closeModal('promotionAddModal')">Cancel</button>
                 <button type="button" class="primary-btn" onclick="openPickedPromotion()"><i class="ti ti-arrow-right"></i> Continue</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="promotionRunModal">
+        <div class="modal-dialog modal-dialog-narrow">
+            <div class="modal-header">
+                <p class="form-heading">Promote to next year</p>
+                <i class="ti ti-x modal-close" onclick="closeModal('promotionRunModal')"></i>
+            </div>
+            <p class="form-subheading">
+                Every enrolled student moves up one class — into the matching stream where one exists
+                (e.g. P.2 A → P.3 A), otherwise into the next plain class. Students marked
+                <strong>Repeating</strong> or <strong>Second sitting</strong> stay in their current class,
+                and <strong>Discontinued</strong> students are unenrolled. Primary 7 students being promoted
+                are marked as having completed primary school. This can be undone afterwards, in whole or
+                for a single student.
+            </p>
+            <form class="modal-form" action="{{ url_for('run_promotion') }}" method="post">
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" onclick="closeModal('promotionRunModal')">Cancel</button>
+                    <button type="submit" class="primary-btn"><i class="ti ti-check"></i> Promote now</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="promotionUndoModal">
+        <div class="modal-dialog modal-dialog-narrow">
+            <div class="modal-header">
+                <p class="form-heading">Undo last promotion</p>
+                <i class="ti ti-x modal-close" onclick="closeModal('promotionUndoModal')"></i>
+            </div>
+            <p class="form-subheading">
+                This moves every student from the last promotion run back to the class they were in
+                before it ran, and restores the decisions that were recorded for them.
+            </p>
+            <form class="modal-form" action="{{ url_for('undo_promotion') }}" method="post">
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn" onclick="closeModal('promotionUndoModal')">Cancel</button>
+                    <button type="submit" class="danger-btn"><i class="ti ti-refresh"></i> Undo promotion</button>
+                </div>
+            </form>
         </div>
     </div>
 

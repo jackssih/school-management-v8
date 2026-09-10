@@ -26,6 +26,8 @@ from models import (
     GatePickupEntry,
     GatePickupWeek,
     PromotionDecision,
+    PromotionRun,
+    PromotionRunEntry,
     PublishedReport,
     ReportBatch,
     ReportComment,
@@ -196,6 +198,7 @@ ADMIN_ONLY_ENDPOINTS = {
     "academics", "academic_subjects_class", "new_academic_class", "edit_academic_class", "delete_academic_class",
     "download_class_students", "new_subject", "edit_subject", "delete_subject",
     "new_enrollment", "edit_enrollment", "unenroll_students", "update_promotion_decisions",
+    "run_promotion", "undo_promotion", "undo_promotion_student",
     "save_term_dates", "switch_term",
     # Whole-school scheduling
     "events", "new_event", "edit_event", "delete_event",
@@ -1324,6 +1327,114 @@ def promotion_records():
             }
         )
     return records
+
+
+# --- Year-end promotion: move students up to the next class ---
+#
+# A class name like "P.2 A" / "p.2a" / "Primary 2A" is read as level 2,
+# stream "A"; "Primary 3" is level 3, no stream. Promotion moves a student
+# to the same stream one level up (P.2 A -> P.3 A) when that class exists,
+# and otherwise into the single plain class at that level (P.3 A -> P.4,
+# if there's no P.4 A) — matching how this school actually names streamed
+# vs. unstreamed classes, rather than assuming every level is streamed.
+CLASS_LEVEL_STREAM_RE = re.compile(r"^\s*(?:primary|p)\.?\s*([1-7])\s*([a-z]*)\s*$", re.IGNORECASE)
+PROMOTION_STAY_DECISIONS = {"Repeating", "Second sitting"}
+PROMOTION_DEFAULT_DECISION = "Promoted"
+
+
+def parse_class_level_stream(class_name):
+    """Split a class name into (level 1-7, stream '' or 'A'/'B'/...).
+
+    Returns None when the name doesn't follow the Primary numbering
+    pattern at all (a custom class name) — callers should leave those
+    students alone rather than guess.
+    """
+    match = CLASS_LEVEL_STREAM_RE.match(class_name or "")
+    if not match:
+        return None
+    return int(match.group(1)), match.group(2).strip().upper()
+
+
+def resolve_promotion_target(current_class_name, class_names):
+    """Work out which class a student in `current_class_name` moves into
+    next year, matched against the school's own existing class list.
+
+    Returns {"outcome": ..., "class_name": ...} where outcome is:
+      - "matched": class_name is the class to move them into.
+      - "final_year": already in the top class (Primary 7) — there's
+        nowhere further to go, so they've completed primary school.
+      - "unresolved": the name doesn't parse, or the next class can't be
+        worked out with confidence (e.g. two streams next level and no
+        matching stream or single plain class to fall back to).
+    """
+    parsed = parse_class_level_stream(current_class_name)
+    if parsed is None:
+        return {"outcome": "unresolved", "class_name": None}
+    level, stream = parsed
+    if level >= 7:
+        return {"outcome": "final_year", "class_name": None}
+
+    next_level = level + 1
+    next_level_classes = []
+    for name in class_names:
+        parsed_next = parse_class_level_stream(name)
+        if parsed_next and parsed_next[0] == next_level:
+            next_level_classes.append((parsed_next[1], name))
+
+    if not next_level_classes:
+        return {"outcome": "unresolved", "class_name": None}
+
+    plain_classes = [name for class_stream, name in next_level_classes if not class_stream]
+
+    if stream:
+        for class_stream, name in next_level_classes:
+            if class_stream == stream:
+                return {"outcome": "matched", "class_name": name}
+        if len(plain_classes) == 1:
+            return {"outcome": "matched", "class_name": plain_classes[0]}
+        return {"outcome": "unresolved", "class_name": None}
+
+    if len(plain_classes) == 1:
+        return {"outcome": "matched", "class_name": plain_classes[0]}
+    if len(next_level_classes) == 1:
+        return {"outcome": "matched", "class_name": next_level_classes[0][1]}
+    return {"outcome": "unresolved", "class_name": None}
+
+
+def latest_promotion_run():
+    return PromotionRun.query.order_by(PromotionRun.id.desc()).first()
+
+
+def promotion_run_summary(run):
+    if run is None:
+        return None
+    entries = list(run.entries)
+    active = [e for e in entries if not e.reverted]
+    return {
+        "id": run.id,
+        "run_date": format_display_date(run.run_date),
+        "status": run.status,
+        "label": run.label,
+        "moved": len([e for e in active if e.outcome == "Moved"]),
+        "stayed": len([e for e in active if e.outcome == "Stayed"]),
+        "completed": len([e for e in active if e.outcome == "Completed"]),
+        "discontinued": len([e for e in active if e.outcome == "Discontinued"]),
+        "unresolved": len([e for e in active if e.outcome == "Unresolved"]),
+        "reverted": len(entries) - len(active),
+        "entries": [
+            {
+                "id": e.id,
+                "student_id": e.student_id,
+                "student_name": e.student.name if e.student else "(removed student)",
+                "decision": e.decision,
+                "from_class_name": e.from_class_name,
+                "to_class_name": e.to_class_name,
+                "outcome": e.outcome,
+                "reverted": e.reverted,
+            }
+            for e in entries
+        ],
+    }
 
 
 def academic_redirect(tab):
@@ -3563,7 +3674,12 @@ def academics():
         if search_query:
             query = search_query.lower()
             records = [r for r in records if query in r["class_name"].lower()]
-        context.update({"records": records, "singular_label": "Promotion", "plural_label": "Promotions"})
+        context.update({
+            "records": records,
+            "singular_label": "Promotion",
+            "plural_label": "Promotions",
+            "latest_promotion_run": promotion_run_summary(latest_promotion_run()),
+        })
     else:
         records = academic_class_records()
         if search_query:
@@ -3953,6 +4069,153 @@ def update_promotion_decisions(class_id):
                 db.session.add(PromotionDecision(student_id=student["id"], decision=decision))
     db.session.commit()
     return json_or_redirect("promotion", f"{class_record.name} promotion decisions were updated.")
+
+
+@app.route("/academics/promotion/run", methods=["POST"])
+def run_promotion():
+    """Apply year-end promotion to every currently-enrolled student.
+
+    Each student's saved decision (Academics > Promotion) decides what
+    happens to them; a student with no decision recorded defaults to
+    "Promoted", since most students move up every year and admins are
+    only expected to mark the exceptions:
+      - Promoted (or no decision): moved to the next class — same stream
+        one level up where it exists, otherwise the next plain class.
+        Primary 7 students have nowhere further to go, so they're marked
+        as having completed primary school instead.
+      - Repeating / Second sitting: stay in their current class.
+      - Discontinued: unenrolled (current class cleared).
+    The whole batch is recorded as a PromotionRun so it — or any single
+    student in it — can be undone afterwards.
+    """
+    class_names = [c["name"] for c in all_academic_classes()]
+    decisions = {d.student_id: d.decision for d in PromotionDecision.query.all()}
+    students = Student.query.filter(Student.current_class_name != "").order_by(Student.name).all()
+
+    if not students:
+        flash("There are no enrolled students to promote.", "error")
+        return redirect(academic_redirect("promotion"))
+
+    run = PromotionRun(run_date=date.today(), label=f"Promotion — {date.today().strftime('%d %b %Y')}")
+    db.session.add(run)
+    db.session.flush()
+
+    counts = {"Moved": 0, "Stayed": 0, "Completed": 0, "Discontinued": 0, "Unresolved": 0}
+    for student in students:
+        decision = decisions.get(student.id, PROMOTION_DEFAULT_DECISION)
+        from_class = student.current_class_name
+        to_class = from_class
+
+        if decision == "Discontinued":
+            outcome = "Discontinued"
+            to_class = ""
+            student.current_class_name = ""
+        elif decision in PROMOTION_STAY_DECISIONS:
+            outcome = "Stayed"
+        else:
+            target = resolve_promotion_target(from_class, class_names)
+            if target["outcome"] == "matched":
+                outcome = "Moved"
+                to_class = target["class_name"]
+                student.current_class_name = to_class
+            elif target["outcome"] == "final_year":
+                outcome = "Completed"
+                to_class = ""
+                student.current_class_name = ""
+            else:
+                outcome = "Unresolved"
+
+        counts[outcome] += 1
+        db.session.add(PromotionRunEntry(
+            run_id=run.id,
+            student_id=student.id,
+            decision=decision,
+            from_class_name=from_class,
+            to_class_name=to_class,
+            outcome=outcome,
+        ))
+
+    # Decisions were for this year-end only — clear them so next year starts fresh.
+    PromotionDecision.query.delete()
+    db.session.commit()
+
+    parts = []
+    if counts["Moved"]:
+        parts.append(f"{counts['Moved']} promoted")
+    if counts["Stayed"]:
+        parts.append(f"{counts['Stayed']} kept in their class")
+    if counts["Completed"]:
+        parts.append(f"{counts['Completed']} completed Primary 7")
+    if counts["Discontinued"]:
+        parts.append(f"{counts['Discontinued']} discontinued")
+    if counts["Unresolved"]:
+        parts.append(f"{counts['Unresolved']} need manual placement")
+    flash("Promotion applied: " + ", ".join(parts) + ".", "success")
+    return redirect(academic_redirect("promotion"))
+
+
+def _revert_promotion_entry(entry):
+    """Move one student back to their pre-promotion class and restore the
+    decision that was recorded for them, then mark the entry reverted."""
+    student = entry.student
+    if student is not None:
+        student.current_class_name = entry.from_class_name
+        if entry.decision and entry.decision != PROMOTION_DEFAULT_DECISION:
+            existing = PromotionDecision.query.filter_by(student_id=student.id).first()
+            if existing:
+                existing.decision = entry.decision
+            else:
+                db.session.add(PromotionDecision(student_id=student.id, decision=entry.decision))
+    entry.reverted = True
+
+
+@app.route("/academics/promotion/undo", methods=["POST"])
+def undo_promotion():
+    """Undo the most recent promotion run in full."""
+    run = latest_promotion_run()
+    if run is None or run.status != "Applied":
+        flash("There's no applied promotion to undo.", "error")
+        return redirect(academic_redirect("promotion"))
+
+    restored = 0
+    for entry in run.entries:
+        if entry.reverted:
+            continue
+        _revert_promotion_entry(entry)
+        restored += 1
+    run.status = "Reverted"
+    db.session.commit()
+    flash(f"Promotion undone — {restored} student(s) restored to their previous class.", "success")
+    return redirect(academic_redirect("promotion"))
+
+
+@app.route("/academics/promotion/undo-student/<int:student_id>", methods=["POST"])
+def undo_promotion_student(student_id):
+    """Undo one student's most recent promotion, leaving everyone else's
+    promotion in place — for the case where just one student was
+    promoted (or held back) by mistake."""
+    entry = (
+        PromotionRunEntry.query
+        .filter_by(student_id=student_id, reverted=False)
+        .order_by(PromotionRunEntry.id.desc())
+        .first()
+    )
+    if entry is None:
+        flash("This student has no recent promotion to undo.", "error")
+        return redirect(academic_redirect("promotion"))
+
+    student = entry.student
+    name = student.name if student else "Student"
+    from_class = entry.from_class_name
+    _revert_promotion_entry(entry)
+
+    run = entry.run
+    if run is not None and run.status == "Applied" and all(e.reverted for e in run.entries):
+        run.status = "Reverted"
+
+    db.session.commit()
+    flash(f"{name}'s promotion was undone — moved back to {from_class or 'Not enrolled'}.", "success")
+    return redirect(academic_redirect("promotion"))
 
 
 # --- Placeholder routes for the rest of the main menu ---
