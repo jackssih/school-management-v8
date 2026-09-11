@@ -218,10 +218,18 @@
         if (!rows.length) return "";
 
         const priority = periodPriorityForReport(reportType);
+        // A period that isn't in this report's priority list (indexOf === -1)
+        // must rank *below* every real match, not above it — otherwise the
+        // very first period ever entered for a subject (typically B.O.T.)
+        // wins forever, since -1 is numerically less than any real index.
+        const priorityRank = (type) => {
+            const idx = priority.indexOf(type);
+            return idx === -1 ? Infinity : idx;
+        };
         const bySubject = {};
         rows.forEach((row) => {
             const existing = bySubject[row.subject];
-            if (!existing || priority.indexOf(row.type) < priority.indexOf(existing.type)) {
+            if (!existing || priorityRank(row.type) < priorityRank(existing.type)) {
                 bySubject[row.subject] = row;
             }
         });
