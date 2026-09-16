@@ -246,6 +246,10 @@ class ReportComment(db.Model, TimestampMixin):
     comment_type: Mapped[str] = mapped_column(String(40), nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False)
     teacher: Mapped[str] = mapped_column(String(160), default="", nullable=False)
+    # Which printed report this comment belongs to: the full "End of term"
+    # report card, or the short "Mini report" slip class teachers also fill
+    # in for the Beginning-of-term and Mid-term checkpoints.
+    report_stage: Mapped[str] = mapped_column(String(60), default="End of term", nullable=False)
 
     student: Mapped[Student] = relationship()
 

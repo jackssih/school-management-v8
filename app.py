@@ -395,6 +395,14 @@ ASSESSMENT_TYPES = [
     "E.O.T External",
 ]
 
+# Which printed report a comment belongs to: the full end of term report
+# card, or the short mini report slip class teachers also fill in at the
+# Beginning-of-term and Mid-term checkpoints.
+COMMENT_REPORT_STAGES = [
+    "End of term",
+    "Mini report (Mid-term / BOT)",
+]
+
 # Assessments and results are now backed by the database (Assessment,
 # AssessmentResult in models.py). The lists below are only used once, by
 # seed_initial_database(), to populate the first rows — everything at runtime
@@ -418,8 +426,8 @@ ASSESSMENT_RESULTS = {
 # all_published_reports(). PUBLISHED_REPORTS stays empty; every published
 # report from here on is created by the publish route, not seeded.
 REPORT_COMMENTS = [
-    {"id": 1, "student_id": 1, "class_name": "Primary 5", "comment_type": "Class teacher", "comment": "Strong performance and consistent effort.", "teacher": "Raymond Gakwaya"},
-    {"id": 2, "student_id": 2, "class_name": "Primary 3", "comment_type": "Head teacher", "comment": "Keep working steadily next term.", "teacher": "Taaka Beatrice"},
+    {"id": 1, "student_id": 1, "class_name": "Primary 5", "comment_type": "Class teacher", "comment": "Strong performance and consistent effort.", "teacher": "Raymond Gakwaya", "report_stage": "End of term"},
+    {"id": 2, "student_id": 2, "class_name": "Primary 3", "comment_type": "Head teacher", "comment": "Keep working steadily next term.", "teacher": "Taaka Beatrice", "report_stage": "End of term"},
 ]
 
 # Attendance is now backed by the database (AttendanceRecord, AttendanceMark
@@ -677,6 +685,7 @@ def seed_initial_database():
                 comment_type=comment["comment_type"],
                 comment=comment["comment"],
                 teacher=comment.get("teacher", ""),
+                report_stage=comment.get("report_stage", "End of term"),
             )
         )
 
@@ -879,6 +888,20 @@ def head_teacher_record():
     return {
         "name": head_teacher.name,
         "signature_url": staff_signature_url(head_teacher),
+    }
+
+
+def allowed_comment_teachers(class_name):
+    """The only two people allowed to leave a report comment for a class:
+    that class's own class teacher, and the school's head teacher. Used to
+    build the restricted Teacher dropdown on the comment form and to check
+    submissions server-side, so a comment can't be attributed to a teacher
+    with no connection to the class."""
+    academic_class = AcademicClass.query.filter_by(name=class_name).first() if class_name else None
+    class_teacher_name = academic_class.class_teacher.name if academic_class and academic_class.class_teacher else ""
+    return {
+        "Class teacher": class_teacher_name,
+        "Head teacher": head_teacher_record()["name"],
     }
 
 
@@ -1508,9 +1531,14 @@ def grade_class_records(tab):
     return records
 
 
-def grades_json_or_redirect(tab, message, class_id=None):
+def grades_json_or_redirect(tab, message, class_id=None, student_id=None):
     flash(message, "success")
-    redirect_url = url_for("grades_class", tab=tab, class_id=class_id) if class_id else grades_redirect(tab)
+    if tab == "comments" and class_id and student_id:
+        redirect_url = url_for("grades_comment_student", class_id=class_id, student_id=student_id)
+    elif class_id:
+        redirect_url = url_for("grades_class", tab=tab, class_id=class_id)
+    else:
+        redirect_url = grades_redirect(tab)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"success": True, "redirect": redirect_url})
     return redirect(redirect_url)
@@ -1592,6 +1620,7 @@ def report_comment_record_dict(comment):
         "comment_type": comment.comment_type,
         "comment": comment.comment,
         "teacher": comment.teacher,
+        "report_stage": comment.report_stage,
     }
 
 
@@ -1829,10 +1858,25 @@ def report_classes_for_scope(scope):
     return [scope] if any(c["name"] == scope for c in classes) else []
 
 
-def report_comment_map(student_id):
+def report_stage_for_report_type(report_type):
+    """Maps a Reports-module report type to the report_stage recorded on a
+    ReportComment. Beginning-of-term and Mid-term reports use the class
+    teacher's short 'mini report' comment; everything else (End of term,
+    and any other report type) uses the full end of term comment."""
+    if report_type in ("Beginning of term", "Mid-term"):
+        return "Mini report (Mid-term / BOT)"
+    return "End of term"
+
+
+def report_comment_map(student_id, report_type=None):
+    stage = report_stage_for_report_type(report_type)
     comments = {"Class teacher": "", "Head teacher": ""}
     for comment in all_report_comments():
-        if comment["student_id"] == student_id and comment["comment_type"] in comments:
+        if (
+            comment["student_id"] == student_id
+            and comment["comment_type"] in comments
+            and comment.get("report_stage", "End of term") == stage
+        ):
             comments[comment["comment_type"]] = comment["comment"]
     return comments
 
@@ -2063,7 +2107,7 @@ def report_students_payload(report):
                 "enrollment_date": student_enrollment_date(student["id"], student.get("created_on", "")),
                 "level": class_level(class_name),
                 "main_subjects": main_subjects_for_class(class_name),
-                "comments": report_comment_map(student["id"]),
+                "comments": report_comment_map(student["id"], report.get("report_type")),
                 "assessments": report_assessment_rows(student),
             }
         )
@@ -4321,6 +4365,11 @@ def grades():
         "grade_detail": False,
         "grade_class": None,
         "comment_students": [],
+        "comment_student": None,
+        "student_comments": [],
+        "comment_report_stages": COMMENT_REPORT_STAGES,
+        "comment_allowed_teachers": {},
+        "head_teacher": head_teacher_record(),
     })
     return render_template("grades.html", **context)
 
@@ -4354,6 +4403,11 @@ def grades_class(tab, class_id):
         "grade_detail": True,
         "grade_class": academic_class,
         "comment_students": [],
+        "comment_student": None,
+        "student_comments": [],
+        "comment_report_stages": COMMENT_REPORT_STAGES,
+        "comment_allowed_teachers": {},
+        "head_teacher": head_teacher_record(),
     })
 
     if tab == "assessments":
@@ -4376,17 +4430,19 @@ def grades_class(tab, class_id):
             context["sort"] = sort
         context.update({"records": records, "singular_label": "Assessment", "plural_label": "Assessments"})
     else:
-        comments = [r for r in comment_records() if r["class_name"] == academic_class.name]
+        # Comments: second-level navigation is now a plain student list —
+        # one row per student in this class, clickable through to that
+        # student's own comments page — matching how Enrollment and Subjects
+        # drill from a class into their own second-level list.
+        students = get_class_students(academic_class.name)
         if search_query:
             query = search_query.lower()
-            comments = [
-                r for r in comments
-                if query in r["student_name"].lower()
-                or query in r["comment_type"].lower()
-                or query in r["teacher"].lower()
-                or query in r["comment"].lower()
+            students = [
+                s for s in students
+                if query in s["name"].lower()
+                or query in (s.get("registration_number") or "").lower()
             ]
-        students = get_class_students(academic_class.name)
+        comments = [r for r in comment_records() if r["class_name"] == academic_class.name]
         comments_by_student = {}
         for comment in comments:
             comments_by_student.setdefault(comment["student_id"], []).append(comment)
@@ -4403,6 +4459,48 @@ def grades_class(tab, class_id):
             "plural_label": "Students",
         })
 
+    return render_template("grades.html", **context)
+
+
+@app.route("/grades/comments/class/<int:class_id>/student/<int:student_id>")
+def grades_comment_student(class_id, student_id):
+    """Third-level comments view: every comment recorded for one student,
+    editable/deletable in place, with an Add comment form restricted to
+    this class's own class teacher and the school's head teacher."""
+    academic_class = AcademicClass.query.get(class_id)
+    if academic_class is None:
+        abort(404)
+
+    student = Student.query.get(student_id)
+    if student is None or student.current_class_name != academic_class.name:
+        abort(404)
+
+    student_comments = [c for c in comment_records() if c["student_id"] == student_id]
+    student_comments.sort(key=lambda c: c["id"], reverse=True)
+
+    context = base_context("grades")
+    context.update({
+        "active_tab": "comments",
+        "search_query": "",
+        "sort": request.args.get("sort", "assessment_type"),
+        "classes": all_academic_classes(),
+        "students": get_class_students(academic_class.name),
+        "subjects": [],
+        "teachers": teacher_names(),
+        "assessment_types": ASSESSMENT_TYPES,
+        "sort_options": [],
+        "records": [],
+        "grade_detail": True,
+        "grade_class": academic_class,
+        "comment_students": [],
+        "comment_student": student_record(student),
+        "student_comments": student_comments,
+        "comment_report_stages": COMMENT_REPORT_STAGES,
+        "comment_allowed_teachers": allowed_comment_teachers(academic_class.name),
+        "head_teacher": head_teacher_record(),
+        "singular_label": "Comment",
+        "plural_label": "Comments",
+    })
     return render_template("grades.html", **context)
 
 
@@ -4520,6 +4618,7 @@ def delete_assessment(assessment_id):
 def new_grade_comment():
     student_id = request.form.get("student_id", "").strip()
     comment_type = request.form.get("comment_type", "").strip()
+    report_stage = request.form.get("report_stage", "").strip()
     comment = request.form.get("comment", "").strip()
     teacher = request.form.get("teacher", "").strip()
     student = next((s for s in all_students() if str(s["id"]) == student_id), None)
@@ -4528,8 +4627,15 @@ def new_grade_comment():
         errors["student_id"] = "Student is required."
     if not comment_type:
         errors["comment_type"] = "Comment type is required."
+    if not report_stage:
+        errors["report_stage"] = "Choose whether this is for the end of term report or the mini report."
     if not comment:
         errors["comment"] = "Comment is required."
+    if student and teacher:
+        allowed = allowed_comment_teachers(student.get("enrolled_class", ""))
+        expected = allowed.get(comment_type, "")
+        if expected and teacher != expected:
+            errors["teacher"] = "Only this class's class teacher or the head teacher can be selected."
     if errors:
         return jsonify({"success": False, "errors": errors}), 400
 
@@ -4537,13 +4643,19 @@ def new_grade_comment():
         ReportComment(
             student_id=student["id"],
             comment_type=comment_type,
+            report_stage=report_stage,
             comment=comment,
             teacher=teacher,
         )
     )
     db.session.commit()
     class_record = AcademicClass.query.filter_by(name=student.get("enrolled_class", "")).first()
-    return grades_json_or_redirect("comments", f"{student['name']}'s comment was added.", class_record.id if class_record else None)
+    return grades_json_or_redirect(
+        "comments",
+        f"{student['name']}'s comment was added.",
+        class_record.id if class_record else None,
+        student["id"],
+    )
 
 
 @app.route("/grades/comments/<int:comment_id>/edit", methods=["POST"])
@@ -4554,6 +4666,7 @@ def edit_grade_comment(comment_id):
 
     student_id = request.form.get("student_id", "").strip()
     comment_type = request.form.get("comment_type", "").strip()
+    report_stage = request.form.get("report_stage", "").strip()
     comment = request.form.get("comment", "").strip()
     teacher = request.form.get("teacher", "").strip()
     student = next((s for s in all_students() if str(s["id"]) == student_id), None)
@@ -4562,31 +4675,46 @@ def edit_grade_comment(comment_id):
         errors["student_id"] = "Student is required."
     if not comment_type:
         errors["comment_type"] = "Comment type is required."
+    if not report_stage:
+        errors["report_stage"] = "Choose whether this is for the end of term report or the mini report."
     if not comment:
         errors["comment"] = "Comment is required."
+    if student and teacher:
+        allowed = allowed_comment_teachers(student.get("enrolled_class", ""))
+        expected = allowed.get(comment_type, "")
+        if expected and teacher != expected:
+            errors["teacher"] = "Only this class's class teacher or the head teacher can be selected."
     if errors:
         return jsonify({"success": False, "errors": errors}), 400
 
     report_comment.student_id = student["id"]
     report_comment.comment_type = comment_type
+    report_comment.report_stage = report_stage
     report_comment.comment = comment
     report_comment.teacher = teacher
     db.session.commit()
     class_record = AcademicClass.query.filter_by(name=student.get("enrolled_class", "")).first()
-    return grades_json_or_redirect("comments", f"{student['name']}'s comment was updated.", class_record.id if class_record else None)
+    return grades_json_or_redirect(
+        "comments",
+        f"{student['name']}'s comment was updated.",
+        class_record.id if class_record else None,
+        student["id"],
+    )
 
 
 @app.route("/grades/comments/<int:comment_id>/delete", methods=["POST"])
 def delete_grade_comment(comment_id):
     report_comment = ReportComment.query.get(comment_id)
     if report_comment:
-        class_name = report_comment.student.current_class_name if report_comment.student else ""
+        student = report_comment.student
+        class_name = student.current_class_name if student else ""
         class_record = AcademicClass.query.filter_by(name=class_name).first() if class_name else None
+        student_id = student.id if student else None
         db.session.delete(report_comment)
         db.session.commit()
         flash("Comment was removed.", "success")
-        if class_record:
-            return redirect(url_for("grades_class", tab="comments", class_id=class_record.id))
+        if class_record and student_id:
+            return redirect(url_for("grades_comment_student", class_id=class_record.id, student_id=student_id))
     return redirect(grades_redirect("comments"))
 
 

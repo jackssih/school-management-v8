@@ -116,10 +116,26 @@
         document.getElementById("commentEditForm").action = `${COMMENT_URL_BASE}/${record.id}/edit`;
         setValue("comment-edit-student", record.student_id);
         setValue("comment-edit-type", record.comment_type);
+        setValue("comment-edit-report-stage", record.report_stage);
         setValue("comment-edit-teacher", record.teacher);
         setValue("comment-edit-text", record.comment);
         openModal("commentEditModal");
     };
+
+    // Keeps the Teacher dropdown in sync with the chosen "Comment by" role —
+    // the dropdown only ever holds this class's class teacher and the
+    // school's head teacher, so picking the role can safely pick the person too.
+    function syncCommentTeacher(typeSelectId, teacherSelectId) {
+        const typeSelect = document.getElementById(typeSelectId);
+        const teacherSelect = document.getElementById(teacherSelectId);
+        if (!typeSelect || !teacherSelect) return;
+        typeSelect.addEventListener("change", () => {
+            const match = Array.from(teacherSelect.options).find((option) => option.dataset.role === typeSelect.value);
+            if (match) teacherSelect.value = match.value;
+        });
+    }
+    syncCommentTeacher("comment-type", "comment-teacher");
+    syncCommentTeacher("comment-edit-type", "comment-edit-teacher");
 
     window.openDeleteConfirm = function (formId, label) {
         document.getElementById("confirmDeleteText").textContent =
