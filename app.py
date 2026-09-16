@@ -477,7 +477,15 @@ def parse_seed_date(value):
 
 
 def parse_strict_date(value):
-    """Parse a 'DD-MM-YYYY' or 'YYYY-MM-DD' date string, returning None if invalid.
+    """Parse a date value from a bulk-upload spreadsheet, returning None if
+    nothing matches.
+
+    Accepts the two formats documented on the download template
+    (DD-MM-YYYY, YYYY-MM-DD) plus the other date styles a spreadsheet
+    commonly produces: slash- and dot-separated, two-digit years, "12 Mar
+    2015" / "March 12, 2015" style names, and the raw serial number
+    Excel/Google Sheets sometimes exports a date column as when a CSV is
+    re-saved under a different regional format.
 
     Unlike parse_seed_date (used for trusted seed data, which falls back to
     today's date), bulk-upload input is user-supplied and a bad date should be
@@ -487,9 +495,31 @@ def parse_strict_date(value):
         return value
     if not value:
         return None
-    for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
+    text = str(value).strip()
+    if not text:
+        return None
+
+    # Excel/Sheets date serial number (days since 1899-12-30) — what a date
+    # column sometimes turns into once a spreadsheet app re-exports the CSV
+    # under a different regional/number format, e.g. "42074".
+    if text.isdigit() and 4 <= len(text) <= 5:
+        serial = int(text)
+        if 1 <= serial <= 60000:
+            return date(1899, 12, 30) + timedelta(days=serial)
+
+    formats = (
+        "%d-%m-%Y", "%Y-%m-%d",               # already-documented dash formats
+        "%d/%m/%Y", "%Y/%m/%d",               # slash formats (DD/MM/YYYY is the common one outside the US)
+        "%d.%m.%Y", "%Y.%m.%d",               # dot formats
+        "%d-%m-%y", "%d/%m/%y", "%d.%m.%y",   # two-digit year
+        "%d %B %Y", "%d %b %Y",               # "12 March 2015" / "12 Mar 2015"
+        "%d-%B-%Y", "%d-%b-%Y",               # "12-March-2015" / "12-Mar-2015"
+        "%B %d, %Y", "%b %d, %Y",             # "March 12, 2015" / "Mar 12, 2015"
+        "%B %d %Y", "%b %d %Y",
+    )
+    for fmt in formats:
         try:
-            return datetime.strptime(value.strip(), fmt).date()
+            return datetime.strptime(text, fmt).date()
         except (TypeError, ValueError):
             continue
     return None
@@ -3539,7 +3569,7 @@ def bulk_upload_students():
 
         date_of_birth = parse_strict_date(dob_raw) if dob_raw else None
         if dob_raw and date_of_birth is None:
-            skipped.append({"row": row_number, "reason": "Date of birth must be DD-MM-YYYY or YYYY-MM-DD."})
+            skipped.append({"row": row_number, "reason": "Date of birth wasn't recognized. Try DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD."})
             continue
 
         if reg_no:
