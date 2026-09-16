@@ -3550,6 +3550,7 @@ def bulk_upload_students():
     added = 0
     skipped = []
     seen_reg_numbers = set()
+    seen_lins = set()
 
     for row_number, row in enumerate(rows, start=2):  # row 1 is the header
         name = (row.get("name") or "").strip()
@@ -3572,6 +3573,18 @@ def bulk_upload_students():
             skipped.append({"row": row_number, "reason": "Date of birth wasn't recognized. Try DD-MM-YYYY, DD/MM/YYYY or YYYY-MM-DD."})
             continue
 
+        # LIN is the one identifier every student actually carries on a
+        # school-issued sheet, so it's what catches the same student showing
+        # up twice — either repeated within this file, or already added from
+        # an earlier upload — and keeps re-running the same file safe.
+        if lin:
+            if lin in seen_lins:
+                skipped.append({"row": row_number, "reason": f"LIN {lin} is duplicated in this file."})
+                continue
+            if Student.query.filter_by(lin=lin).first():
+                skipped.append({"row": row_number, "reason": f"LIN {lin} already belongs to an existing student."})
+                continue
+
         if reg_no:
             if reg_no in seen_reg_numbers or Student.query.filter_by(registration_number=reg_no).first():
                 skipped.append({"row": row_number, "reason": f"Registration number {reg_no} is already in use."})
@@ -3580,6 +3593,8 @@ def bulk_upload_students():
             reg_no = generate_registration_number()
 
         seen_reg_numbers.add(reg_no)
+        if lin:
+            seen_lins.add(lin)
         db.session.add(
             Student(
                 registration_number=reg_no,
