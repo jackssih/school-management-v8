@@ -10,7 +10,7 @@
     <div class="profiles-toolbar">
         <div class="profiles-title">
             <p class="profiles-heading">All Events</p>
-            <span class="count-badge">{{ records|length }}</span>
+            <span class="count-badge">{{ total_count }}</span>
         </div>
 
         <div class="profiles-actions">
@@ -69,6 +69,7 @@
             </tbody>
         </table>
     </div>
+    {% include "_pagination.html" %}
 
     <div class="modal-overlay" id="eventAddModal">
         <div class="modal-dialog">

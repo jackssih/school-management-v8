@@ -76,7 +76,7 @@
     <div class="profiles-toolbar">
         <div class="profiles-title">
             <p class="profiles-heading">User accounts</p>
-            <span class="count-badge">{{ accounts|length }}</span>
+            <span class="count-badge">{{ total_count }}</span>
         </div>
         <div class="profiles-actions">
             <a href="{{ url_for('new_staff') }}" class="primary-btn"><i class="ti ti-user-plus"></i> Add user</a>
@@ -131,6 +131,7 @@
             </tbody>
         </table>
     </div>
+    {% include "_pagination.html" %}
 
     <!-- User: first-time login info -->
     <div class="modal-overlay" id="userLoginInfoModal">

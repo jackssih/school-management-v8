@@ -14,10 +14,10 @@
                 <span class="count-badge">{{ students|length }}</span>
             {% elif view == 'records' %}
                 <p class="profiles-heading">Attendance</p>
-                <span class="count-badge">{{ records|length }}</span>
+                <span class="count-badge">{{ total_count }}</span>
             {% else %}
                 <p class="profiles-heading">Attendance</p>
-                <span class="count-badge">{{ classes|length }}</span>
+                <span class="count-badge">{{ total_count }}</span>
             {% endif %}
         </div>
         <div class="profiles-actions">
@@ -51,7 +51,7 @@
         <table class="profiles-table">
             <thead><tr><th>Class</th><th>Level</th><th>Class teacher</th><th>Students</th><th>Attendance records</th><th class="col-action">Actions</th></tr></thead>
             <tbody>
-                {% for c in classes %}
+                {% for c in class_rows %}
                 {% set class_records = all_records|selectattr('class_name', 'equalto', c.name)|list %}
                 <tr>
                     <td class="name-cell"><a class="academic-class-link" href="{{ url_for('attendance', class_id=c.id) }}">{{ c.name }}</a></td>
@@ -67,12 +67,13 @@
                     </td>
                 </tr>
                 {% endfor %}
-                {% if not classes %}
+                {% if not class_rows %}
                     <tr><td colspan="6" class="empty-cell">No arranged classes found.</td></tr>
                 {% endif %}
             </tbody>
         </table>
     </div>
+    {% include "_pagination.html" %}
     {% else %}
     {% if selected_class %}
     <div class="section-heading" style="margin-bottom:16px;">
@@ -106,6 +107,7 @@
             </tbody>
         </table>
     </div>
+    {% include "_pagination.html" %}
     {% endif %}
 
     <div class="modal-overlay" id="attendanceAddModal">

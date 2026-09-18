@@ -20,13 +20,7 @@
                     {{ plural_label }}
                 {% endif %}
             </p>
-            <span class="count-badge">
-                {% if grade_detail and active_tab == 'comments' %}
-                    {% if comment_student %}{{ student_comments|length }}{% else %}{{ comment_students|length }}{% endif %}
-                {% else %}
-                    {{ records|length }}
-                {% endif %}
-            </span>
+            <span class="count-badge">{{ total_count }}</span>
         </div>
 
         <div class="profiles-actions">
@@ -105,6 +99,7 @@
                 </tbody>
             </table>
         </div>
+        {% include "_pagination.html" %}
     {% elif active_tab == 'comments' and not comment_student %}
         <div class="profiles-table-wrap">
             <table class="profiles-table">
@@ -137,6 +132,7 @@
                 </tbody>
             </table>
         </div>
+        {% include "_pagination.html" %}
     {% elif active_tab == 'comments' and comment_student %}
         <div class="profiles-table-wrap">
             <table class="profiles-table">
@@ -170,6 +166,7 @@
                 </tbody>
             </table>
         </div>
+        {% include "_pagination.html" %}
     {% else %}
         <div class="profiles-table-wrap">
             <table class="profiles-table">
@@ -205,6 +202,7 @@
                 </tbody>
             </table>
         </div>
+        {% include "_pagination.html" %}
     {% endif %}
 
     <div class="modal-overlay" id="assessmentsAddModal">

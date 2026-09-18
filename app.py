@@ -7,6 +7,7 @@ import shutil
 import string
 from datetime import date, datetime, timedelta
 from functools import wraps
+from urllib.parse import urlencode
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, abort, Response, session, send_file
 from flask_migrate import Migrate
@@ -65,6 +66,19 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
 migrate = Migrate(app, db)
+
+
+@app.template_global()
+def pagination_url(**overrides):
+    """Build the current page's URL with one or more query params swapped
+    out (e.g. page=2, or per_page=50). Every other filter already on the
+    URL — search, tab, sort, class, status — is carried over automatically,
+    so the _pagination.html partial works on any table-listing page without
+    that page having to wire up its own hidden fields for paging."""
+    args = request.args.to_dict(flat=True)
+    args.update({key: str(value) for key, value in overrides.items()})
+    query = urlencode(args)
+    return f"{request.path}?{query}" if query else request.path
 
 # --- Profile photo / signature / logo uploads ---
 #
@@ -1028,6 +1042,53 @@ def normalize_gender(value):
 
 def next_id(records):
     return (max((r["id"] for r in records), default=0)) + 1
+
+
+PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+DEFAULT_PAGE_SIZE = 10
+
+
+def paginate(records, default_per_page=DEFAULT_PAGE_SIZE):
+    """Slice an already-filtered/sorted list of dict records for one page.
+
+    Reads page/per_page straight off the current request's query string
+    (per_page capped to PAGE_SIZE_OPTIONS) so every table-listing route can
+    call this right before rendering instead of re-implementing paging.
+    Returns (page_records, pagination) — pagination carries everything the
+    _pagination.html partial needs to draw the rows-per-page selector and
+    prev/next controls without any page-specific wiring.
+    """
+    try:
+        per_page = int(request.args.get("per_page", default_per_page))
+    except (TypeError, ValueError):
+        per_page = default_per_page
+    if per_page not in PAGE_SIZE_OPTIONS:
+        per_page = default_per_page
+
+    try:
+        page = int(request.args.get("page", 1))
+    except (TypeError, ValueError):
+        page = 1
+    page = max(page, 1)
+
+    total = len(records)
+    total_pages = max((total + per_page - 1) // per_page, 1)
+    page = min(page, total_pages)
+
+    start = (page - 1) * per_page
+    page_records = records[start:start + per_page]
+
+    return page_records, {
+        "page": page,
+        "per_page": per_page,
+        "page_size_options": PAGE_SIZE_OPTIONS,
+        "total": total,
+        "total_pages": total_pages,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "start_index": (start + 1) if total else 0,
+        "end_index": min(start + per_page, total),
+    }
 
 
 def parse_created_on(value):
@@ -3028,8 +3089,10 @@ def save_school_settings():
 @app.route("/settings/users", methods=["GET"])
 def settings_users():
     accounts = [staff_record(member) for member in Staff.query.order_by(Staff.name).all()]
+    total_count = len(accounts)
+    page_accounts, pagination = paginate(accounts)
     context = settings_context("users")
-    context.update({"accounts": accounts})
+    context.update({"accounts": page_accounts, "pagination": pagination, "total_count": total_count})
     return render_template("settings.html", **context)
 
 
@@ -3284,10 +3347,21 @@ def profiles():
 
     search_query = request.args.get("q", "").strip()
     status_filter = request.args.get("status", "")
-    sort = request.args.get("sort", "created_desc")
-    if sort not in ("created_desc", "created_asc"):
-        sort = "created_desc"
+    sort = request.args.get("sort", "name_asc")
+    if sort not in ("name_asc", "name_desc", "created_desc", "created_asc"):
+        sort = "name_asc"
     context = base_context("profiles")
+
+    def apply_sort(records):
+        if sort == "name_desc":
+            records.sort(key=lambda r: r["name"].lower(), reverse=True)
+        elif sort == "created_desc":
+            records.sort(key=lambda r: parse_created_on(r["created_on"]), reverse=True)
+        elif sort == "created_asc":
+            records.sort(key=lambda r: parse_created_on(r["created_on"]))
+        else:
+            records.sort(key=lambda r: r["name"].lower())
+        return records
 
     if tab == "students":
         class_filter = request.args.get("class", "")
@@ -3305,12 +3379,14 @@ def profiles():
         if search_query:
             records = [r for r in records if search_query.lower() in r["name"].lower()]
 
-        records.sort(key=lambda r: parse_created_on(r["created_on"]), reverse=(sort == "created_desc"))
+        apply_sort(records)
+        page_records, pagination = paginate(records)
 
         context.update(
             {
                 "active_tab": "students",
-                "records": records,
+                "records": page_records,
+                "pagination": pagination,
                 "singular_label": "Student",
                 "plural_label": "Students",
                 "available_classes": available_classes,
@@ -3319,6 +3395,7 @@ def profiles():
                 "status_filter": status_filter,
                 "search_query": search_query,
                 "sort": sort,
+                "total_count": len(records),
             }
         )
     else:
@@ -3330,18 +3407,21 @@ def profiles():
         if search_query:
             records = [r for r in records if search_query.lower() in r["name"].lower()]
 
-        records.sort(key=lambda r: parse_created_on(r["created_on"]), reverse=(sort == "created_desc"))
+        apply_sort(records)
+        page_records, pagination = paginate(records)
 
         context.update(
             {
                 "active_tab": "staff",
-                "records": records,
+                "records": page_records,
+                "pagination": pagination,
                 "singular_label": "Staff",
                 "plural_label": "Staff",
                 "status_options": ["Active", "Account not activated yet"],
                 "status_filter": status_filter,
                 "search_query": search_query,
                 "sort": sort,
+                "total_count": len(records),
             }
         )
 
@@ -3783,8 +3863,13 @@ def academics():
         if search_query:
             query = search_query.lower()
             records = [r for r in records if query in r["name"].lower() or query in r["teacher"].lower()]
+        records.sort(key=lambda r: r["name"].lower())
+        total_count = len(records)
+        page_records, pagination = paginate(records)
         context.update({
-            "records": records,
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
             "singular_label": "Subject",
             "plural_label": "Subjects",
             "subject_class": None,
@@ -3795,8 +3880,13 @@ def academics():
         if search_query:
             query = search_query.lower()
             records = [r for r in records if query in r["name"].lower() or query in r["teacher"].lower()]
+        records.sort(key=lambda r: r["name"].lower())
+        total_count = len(records)
+        page_records, pagination = paginate(records)
         context.update({
-            "records": records,
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
             "singular_label": "Enrollment",
             "plural_label": "Classes",
             "enrollment_class": None,
@@ -3807,8 +3897,13 @@ def academics():
         if search_query:
             query = search_query.lower()
             records = [r for r in records if query in r["class_name"].lower()]
+        records.sort(key=lambda r: r["class_name"].lower())
+        total_count = len(records)
+        page_records, pagination = paginate(records)
         context.update({
-            "records": records,
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
             "singular_label": "Promotion",
             "plural_label": "Promotions",
             "latest_promotion_run": promotion_run_summary(latest_promotion_run()),
@@ -3818,7 +3913,16 @@ def academics():
         if search_query:
             query = search_query.lower()
             records = [r for r in records if query in r["name"].lower() or query in r["teacher"].lower()]
-        context.update({"records": records, "singular_label": "Class", "plural_label": "Classes"})
+        records.sort(key=lambda r: r["name"].lower())
+        total_count = len(records)
+        page_records, pagination = paginate(records)
+        context.update({
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
+            "singular_label": "Class",
+            "plural_label": "Classes",
+        })
 
     return render_template("academics.html", **context)
 
@@ -3906,6 +4010,16 @@ def academic_subjects_class(class_id):
     unenrolled_student_records = [s for s in all_student_records if not s.get("enrolled_class")]
     enrolled_count = len(all_student_records) - len(unenrolled_student_records)
     context = base_context("academics")
+    records = subject_records(class_id)
+    if search_query:
+        query = search_query.lower()
+        records = [
+            r for r in records
+            if query in r["name"].lower() or query in r["teacher"].lower()
+        ]
+    records.sort(key=lambda r: r["name"].lower())
+    total_count = len(records)
+    page_records, pagination = paginate(records)
     context.update({
         "active_tab": "subjects",
         "search_query": search_query,
@@ -3916,18 +4030,14 @@ def academic_subjects_class(class_id):
         "bulk_students": unenrolled_student_records,
         "enrolled_count": enrolled_count,
         "not_enrolled_count": len(unenrolled_student_records),
-        "records": subject_records(class_id),
+        "records": page_records,
+        "pagination": pagination,
+        "total_count": total_count,
         "singular_label": "Subject",
         "plural_label": "Subjects",
         "subject_class": academic_class,
         "subject_detail": True,
     })
-    if search_query:
-        query = search_query.lower()
-        context["records"] = [
-            r for r in context["records"]
-            if query in r["name"].lower() or query in r["teacher"].lower()
-        ]
     return render_template("academics.html", **context)
 
 
@@ -4045,6 +4155,9 @@ def academic_enrollment_class(class_id):
             or query in r["registration_number"].lower()
             or query in r["status"].lower()
         ]
+    records.sort(key=lambda r: r["name"].lower())
+    total_count = len(records)
+    page_records, pagination = paginate(records)
 
     context = base_context("academics")
     context.update({
@@ -4057,7 +4170,9 @@ def academic_enrollment_class(class_id):
         "bulk_students": unenrolled_student_records,
         "enrolled_count": enrolled_count,
         "not_enrolled_count": len(unenrolled_student_records),
-        "records": records,
+        "records": page_records,
+        "pagination": pagination,
+        "total_count": total_count,
         "singular_label": "Enrollment",
         "plural_label": "Students",
         "enrollment_class": academic_class,
@@ -4389,6 +4504,9 @@ def grades():
             or query in r["teacher"].lower()
             or query in r["level"].lower()
         ]
+    class_records.sort(key=lambda r: r["name"].lower())
+    total_count = len(class_records)
+    page_records, pagination = paginate(class_records)
 
     context.update({
         "active_tab": tab,
@@ -4404,7 +4522,9 @@ def grades():
             {"value": "student", "label": "Student"},
             {"value": "subject", "label": "Subject"},
         ],
-        "records": class_records,
+        "records": page_records,
+        "pagination": pagination,
+        "total_count": total_count,
         "singular_label": "Assessment" if tab == "assessments" else "Comment",
         "plural_label": "Classes",
         "grade_detail": False,
@@ -4473,7 +4593,15 @@ def grades_class(tab, class_id):
             sort = "assessment_type"
             records.sort(key=lambda r: (r["assessment_type"].lower(), r["subject"].lower()))
             context["sort"] = sort
-        context.update({"records": records, "singular_label": "Assessment", "plural_label": "Assessments"})
+        total_count = len(records)
+        page_records, pagination = paginate(records)
+        context.update({
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
+            "singular_label": "Assessment",
+            "plural_label": "Assessments",
+        })
     else:
         # Comments: second-level navigation is now a plain student list —
         # one row per student in this class, clickable through to that
@@ -4487,6 +4615,7 @@ def grades_class(tab, class_id):
                 if query in s["name"].lower()
                 or query in (s.get("registration_number") or "").lower()
             ]
+        students.sort(key=lambda s: s["name"].lower())
         comments = [r for r in comment_records() if r["class_name"] == academic_class.name]
         comments_by_student = {}
         for comment in comments:
@@ -4497,9 +4626,13 @@ def grades_class(tab, class_id):
                 **student,
                 "comments": comments_by_student.get(student["id"], []),
             })
+        total_count = len(comment_students)
+        page_comment_students, pagination = paginate(comment_students)
         context.update({
             "records": comments,
-            "comment_students": comment_students,
+            "comment_students": page_comment_students,
+            "pagination": pagination,
+            "total_count": total_count,
             "singular_label": "Comment",
             "plural_label": "Students",
         })
@@ -4522,6 +4655,8 @@ def grades_comment_student(class_id, student_id):
 
     student_comments = [c for c in comment_records() if c["student_id"] == student_id]
     student_comments.sort(key=lambda c: c["id"], reverse=True)
+    total_count = len(student_comments)
+    page_student_comments, pagination = paginate(student_comments)
 
     context = base_context("grades")
     context.update({
@@ -4539,7 +4674,9 @@ def grades_comment_student(class_id, student_id):
         "grade_class": academic_class,
         "comment_students": [],
         "comment_student": student_record(student),
-        "student_comments": student_comments,
+        "student_comments": page_student_comments,
+        "pagination": pagination,
+        "total_count": total_count,
         "comment_report_stages": COMMENT_REPORT_STAGES,
         "comment_allowed_teachers": allowed_comment_teachers(academic_class.name),
         "head_teacher": head_teacher_record(),
@@ -4801,19 +4938,33 @@ def reports():
         sort = "created_desc"
         records.sort(key=lambda r: r["created_at"], reverse=True)
 
+    academic_classes = academic_class_records()
+    sorted_classes = sorted(academic_classes, key=lambda c: c["name"].lower())
+
+    total_count = len(records)
+    classes_page = []
+    if tab == "marksheets" and not selected_class:
+        total_count = len(sorted_classes)
+        classes_page, pagination = paginate(sorted_classes)
+    else:
+        records, pagination = paginate(records)
+
     context = base_context("reports")
     context.update(
         {
             "active_tab": tab,
             "report_scope": report_scope,
             "records": records,
+            "pagination": pagination,
+            "total_count": total_count,
             "search_query": search_query,
             "sort": sort,
             # Use the class records that include the live enrolled-student
             # count. The reports template renders this value in the Classes
             # table for both Report Cards and Published tabs.
-            "classes": academic_class_records(),
-            "report_scope_rows": report_scope_rows(records, academic_class_records()),
+            "classes": sorted_classes,
+            "classes_page": classes_page,
+            "report_scope_rows": report_scope_rows(records, sorted_classes),
             "selected_class": selected_class,
             "class_id": class_id,
             "report_types": REPORT_TYPES,
@@ -4962,11 +5113,15 @@ def events():
             or query in r["activity"].lower()
         ]
     records.sort(key=lambda r: parse_date(r["start_date"]) or date.max)
+    total_count = len(records)
+    page_records, pagination = paginate(records)
 
     context = base_context("events")
     context.update(
         {
-            "records": records,
+            "records": page_records,
+            "pagination": pagination,
+            "total_count": total_count,
             "search_query": search_query,
             "classes": all_academic_classes(),
             "teachers": teacher_names() + ["Taaka Beatrice"],
@@ -5121,19 +5276,37 @@ def attendance():
         sort = "date_desc"
         records.sort(key=lambda r: parse_created_on(r["date"]), reverse=True)
 
+    class_records.sort(key=lambda r: r["name"].lower())
+
+    if not selected_class and view != "records":
+        total_count = len(class_records)
+        class_rows, pagination = paginate(class_records)
+    else:
+        total_count = len(records)
+        records, pagination = paginate(records)
+        class_rows = class_records
+
     context = base_context("attendance")
     context.update(
         {
             "records": records,
             "search_query": search_query,
             "sort": sort,
+            # `classes` stays the full, unpaginated list — it also feeds the
+            # "Record attendance" modal's class dropdown, which must always
+            # offer every class regardless of which page of the class table
+            # is showing. `class_rows` is what the class-list table itself
+            # paginates through.
             "classes": class_records,
+            "class_rows": class_rows,
             "students": students,
             "selected_class": selected_class,
             "class_id": class_id,
             "subjects": all_subjects(),
             "attendance_types": ATTENDANCE_TYPES,
             "attendance_statuses": ATTENDANCE_STATUSES,
+            "pagination": pagination,
+            "total_count": total_count,
             "sort_options": [
                 {"value": "date_desc", "label": "Date"},
                 {"value": "type", "label": "Type"},
@@ -5276,7 +5449,10 @@ def timetable():
              "period_count": len(b.periods)}
             for b in TimetableBoard.query.order_by(TimetableBoard.id).all()
         ]
-        context.update({"boards": boards, "classes": all_academic_classes()})
+        boards.sort(key=lambda b: b["name"].lower())
+        total_count = len(boards)
+        page_boards, pagination = paginate(boards)
+        context.update({"boards": page_boards, "pagination": pagination, "total_count": total_count, "classes": all_academic_classes()})
 
     return render_template("timetable.html", **context)
 

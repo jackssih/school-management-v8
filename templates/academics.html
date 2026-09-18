@@ -17,13 +17,13 @@
         <div class="profiles-title">
             {% if active_tab == 'subjects' and subject_detail %}
                 <p class="profiles-heading">{{ subject_class.name }} Subjects</p>
-                <span class="count-badge">{{ records|length }}</span>
+                <span class="count-badge">{{ total_count }}</span>
             {% elif active_tab == 'enrollment' and enrollment_detail %}
                 <p class="profiles-heading">{{ enrollment_class.name }} — Student Enrollment</p>
-                <span class="count-badge">{{ records|length }}</span>
+                <span class="count-badge">{{ total_count }}</span>
             {% else %}
                 <p class="profiles-heading">All {{ plural_label }}</p>
-                <span class="count-badge">{{ records|length }}</span>
+                <span class="count-badge">{{ total_count }}</span>
             {% endif %}
         </div>
 
@@ -298,6 +298,7 @@
             </tbody>
         </table>
     </div>
+    {% include "_pagination.html" %}
 
     <div class="modal-overlay" id="classesAddModal">
         <div class="modal-dialog">
